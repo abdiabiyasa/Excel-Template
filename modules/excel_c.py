@@ -119,9 +119,11 @@ def template_benefit(df):
             df[col] = pd.to_datetime(df[col], errors='coerce')
 
     if "Room Option" in df.columns:
-        df["Room Option"] = df["Room Option"].fillna('').astype(str).str.replace(r"\s+", "", regex=True)
+        df["Room Option"] = (
+            df["Room Option"].replace(["NaN", "nan", "None"], "").fillna("").astype(str).str.replace(r"\s+", "", regex=True))
     if "Treatment Room Class" in df.columns:
-        df["Treatment Room Class"] = df["Treatment Room Class"].fillna('')
+        df["Treatment Room Class"] = (
+            df["Treatment Room Class"].replace(["NaN", "nan", "None"], "").fillna("").astype(str).str.strip())
 
     return df.drop(columns=["Status_Claim", "BAmount"], errors='ignore')
 
@@ -176,7 +178,7 @@ def save_to_excel_c(df_sc, df_benefit, filename: str):
 
         sc.write(0, 0, "List Claim", plain_fmt)
         sc.write(1, 0, df_sc["Client Name"].iloc[0] if not df_sc.empty else "", plain_fmt)
-        sc.write(2, 0, "YTD", plain_fmt)
+        sc.merge_range(2, 0, 2, 1, "YTD Mar 2026", plain_fmt)
 
         #Header
         for col_idx, col_name in enumerate(df_sc.columns):
@@ -188,30 +190,30 @@ def save_to_excel_c(df_sc, df_benefit, filename: str):
         for r, row_data in enumerate(df_sc.to_dict("records"), start=5):
             for c, (col_name, val) in enumerate(row_data.items()):
 
-                if col_name in ["Treatment Start", "Treatment Finish", "Settled Date"] and pd.notna(val):
-                    sc.write_datetime(r, c, val, date_fmt)
+                #koma cols (0 -> cell kosong)
+                if col_name in koma_cols:
+                    if pd.isna(val) or val == 0:
+                        sc.write(r, c, None, border_fmt)         # blank cell
+                    else:
+                        sc.write_number(r, c, float(val), num_fmt)
 
-                elif col_name in koma_cols:
-                    try:
-                        if pd.isna(val) or val in [0, "0", "", None]:
-                            sc.write(r, c, None, border_fmt)
-                        else:
-                            if isinstance(val, str):
-                                clean = val.replace("Rp", "").replace(",", "").strip()
-                                if clean == "":
-                                    sc.write(r, c, None, border_fmt)
-                                else:
-                                    sc.write_number(r, c, float(clean), num_fmt)
-                            else:
-                                sc.write_number(r, c, float(val), num_fmt)
-                    except Exception:
-                        sc.write_string(r, c, str(val))
+                #Date columns
+                elif col_name in ["Treatment Start", "Treatment Finish", "Settled Date"]:
+                     if pd.notna(val):
+                         sc.write_datetime(r, c, pd.to_datetime(val), date_fmt)
+                     else:
+                         sc.write(r, c, None, border_fmt)
 
+                # Emp ID keep as text
                 elif col_name == "Emp ID":
                     sc.write(r, c, str(val) if pd.notna(val) else "", border_fmt)
 
+                # dll klo value 0 -> cell jd kosong
                 else:
-                    sc.write(r, c, val if pd.notna(val) and val != 0 else "", border_fmt)
+                    if pd.isna(val) or val == 0:
+                        sc.write(r, c, None, border_fmt)
+                    else:
+                        sc.write(r, c, val, border_fmt)
 
         # Benefit sheet
         benefit = workbook.add_worksheet("Benefit")
@@ -221,9 +223,45 @@ def save_to_excel_c(df_sc, df_benefit, filename: str):
         for col_idx, col_name in enumerate(df_benefit.columns):
             benefit.write(0, col_idx, col_name, header_fmt)
 
+        koma_cols_benefit = ["Billed", "Accepted", "Unpaid", "Excess Total","Excess Coy", "Excess Emp"]
+
         for r, row_data in enumerate(df_benefit.to_dict("records"), start=1):
             for c, (col_name, val) in enumerate(row_data.items()):
-                benefit.write(r, c, val if pd.notna(val) and val != 0 else "", border_fmt)
+                
+                # koma cols (0 -> cell kosong)
+                if col_name in koma_cols_benefit:
+                    if pd.isna(val) or val == 0:
+                        benefit.write(r, c, None, border_fmt)
+                    else:
+                        benefit.write_number(r, c, float(val), num_fmt)
+        
+                # Date columns
+                elif col_name in ["Treatment Start", "Treatment Finish", "Payment Date"]:
+                    if pd.notna(val):
+                        benefit.write_datetime(r, c, pd.to_datetime(val), date_fmt)
+                    else:
+                        benefit.write(r, c, None, border_fmt)
+        
+                # Emp ID write as text
+                elif col_name == "Emp ID":
+                    benefit.write(r, c, str(val) if pd.notna(val) else "", border_fmt)
+        
+                # dll klo value 0 -> cell jd kosong
+                else:
+                    if pd.isna(val) or val == 0:
+                        benefit.write(r, c, None, border_fmt)
+                    else:
+                        benefit.write(r, c, val, border_fmt)
+                    
+        # for autofit
+        def autofit(sheet, df):
+            for idx, col in enumerate(df.columns):
+                series = df[col].astype(str)
+                max_len = max([len(str(x)) for x in series.values] + [len(col)])
+                sheet.set_column(idx, idx, max_len + 2)
+
+        autofit(sc, df_sc)
+        autofit(benefit, df_benefit)
 
     output.seek(0)
     return output.getvalue(), filename
