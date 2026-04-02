@@ -254,7 +254,7 @@ def save_to_excel_e(df_sc, df_benefit, filename: str):
         # for autofit
         def autofit(sheet, df):
             for idx, col in enumerate(df.columns):
-                series = df[col].astype(str)
+                series = df[col].astype(str).replace("nan", "")
                 max_len = max(series.map(len).max(), len(col))
                 sheet.set_column(idx, idx, max_len + 2)
 
