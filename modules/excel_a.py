@@ -45,8 +45,8 @@ def move_to_template(df):
         "Treatment Start": new_df["TreatmentStart"],
         "Treatment Finish": new_df["TreatmentFinish"],
         "Settled Date": new_df["Date"],
-        "Tahun": new_df["Date"].dt.year,
-        "Bulan": new_df["Date"].dt.month,
+        "Year": new_df["Date"].dt.year,
+        "Month": new_df["Date"].dt.month,
         "Sum of Billed": new_df["Billed"],
         "Sum of Accepted": new_df["Accepted"],
         "Sum of Excess Coy": new_df["ExcessCoy"],
@@ -110,7 +110,7 @@ def save_to_excel_a(df, filename: str):
         sc.hide_gridlines(2)
         sc.write(0, 0, "List Claim", plain_fmt)
         sc.write(1, 0, df["Client Name"].iloc[0] if not df.empty else "", plain_fmt)
-        sc.write(2, 0, "YTD", plain_fmt)
+        sc.merge_range(2, 0, 2, 1, "YTD Mar 2026", plain_fmt)
         sc.write(3, 0, "", plain_fmt)
 
         # table header
