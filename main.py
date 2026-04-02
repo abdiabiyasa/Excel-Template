@@ -119,9 +119,19 @@ elif st.session_state.option == "SC (RWC)":
 
         if filename:
             # sanitize
-            df_sc = df_sc.replace([np.nan, np.inf, -np.inf], "")
-            df_benefit = df_benefit.replace([np.nan, np.inf, -np.inf], "")
-            df_cr = df_cr.replace([np.nan, np.inf, -np.inf], "")
+            df_sc = df_sc.copy()
+            df_benefit = df_benefit.copy()
+            df_cr = df_cr.copy()
+            
+            # handle infinity dulu → jadi NaN
+            df_sc.replace([np.inf, -np.inf], np.nan, inplace=True)
+            df_benefit.replace([np.inf, -np.inf], np.nan, inplace=True)
+            df_cr.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+            # baru isi NaN
+            df_sc.fillna("", inplace=True)
+            df_benefit.fillna("", inplace=True)
+            df_cr.fillna("", inplace=True)
 
             excel_bytes, fname = save_to_excel_d(
                 df_sc,
