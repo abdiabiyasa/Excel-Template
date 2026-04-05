@@ -178,7 +178,7 @@ def save_to_excel_b(df, filename: str):
             series = df[col]
         
             max_len = max(
-                series.astype(str).map(len).max(),  # hanya untuk hitung panjang
+                series.fillna("").astype(str).apply(len).max(),  # hanya untuk hitung panjang
                 len(str(col)))
             sc.set_column(idx, idx, max_len + 2)
     
