@@ -65,6 +65,7 @@ def save_to_excel_b(df, filename: str):
         workbook = writer.book
         df = df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna("")
+        df = df.astype(str)
 
         # format
         header_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'bold': True,'align': 'center', 'border': 1})
