@@ -324,7 +324,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             ("Total Accepted", df_sc['Sum of Accepted'].sum() if 'Sum of Accepted' in df_sc.columns else 0, num_fmt),
             ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
             ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
-            ("Claim Ratio (%)", grand_cr, percent_format)
+            ("Claim Ratio (%)", grand_cr, percent_format),
+            ("Est Claim Ratio (%)", grand_cr, percent_format)
         ]
 
         for i,(name,val,fmt) in enumerate(metrics,start=4):
@@ -341,7 +342,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                 for ci, col_name in enumerate(cr_columns_header):
                     val = rowdata.get(col_name, 0)
 
-                    if col_name in ('CR', 'Est CR'):
+                    if col_name in ('Claim Ratio', 'Est Claim Ratio'):
                         summary_sheet.write_number(r, ci, float(val), highlight_yellow)
                     elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Coy','Excess Emp','Claim'):
                         try:
