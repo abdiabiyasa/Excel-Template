@@ -63,7 +63,9 @@ def save_to_excel_b(df, filename: str):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         workbook = writer.book
-        df = df.replace([np.nan, np.inf, -np.inf], "")
+        df = df.replace(np.inf, "")
+        df = df.replace(-np.inf, "")
+        df = df.fillna("")
 
         # format
         header_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'bold': True,'align': 'center', 'border': 1})
