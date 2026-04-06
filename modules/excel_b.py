@@ -20,12 +20,11 @@ def move_to_template(df):
     new_df = keep_last_duplicate(new_df)
 
     # Convert date columns
-    date_columns = ["TreatmentStart", "TreatmentFinish", "Date", "PaymentDate"]
-
+    date_columns = ["TreatmentStart", "TreatmentFinish", "Date"]
     for col in date_columns:
         new_df[col] = pd.to_datetime(new_df[col], errors='coerce')
-
-
+        if new_df[col].isnull().any():
+            st.warning(f"Invalid date values in '{col}', coerced to NaT.")
 
     df_transformed = pd.DataFrame({
         "No": range(1, len(new_df) + 1),
@@ -47,8 +46,8 @@ def move_to_template(df):
         "Treatment Finish": new_df["TreatmentFinish"],
         "Payment Date": new_df["PaymentDate"],
         "Settled Date": new_df["Date"],
-        "Tahun": new_df["Date"].dt.year,
-        "Bulan": new_df["Date"].dt.month,
+        "Year": new_df["Date"].dt.year,
+        "Month": new_df["Date"].dt.month,
         "Sum of Billed": new_df["Billed"],
         "Sum of Accepted": new_df["Accepted"],
         "Sum of Excess Coy": new_df["ExcessCoy"],
@@ -63,19 +62,20 @@ def save_to_excel_b(df, filename: str):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         workbook = writer.book
-        df = df.replace([np.nan, np.inf, -np.inf], "")
 
-        # format
+        # format tampilan
         header_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'bold': True,'align': 'center', 'border': 1})
         border_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'border': 1})
         borderbold_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'bold': True,'border': 1})
+        
+        # format angka
         num_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'border': 1, 'num_format': '#,##0;[Red]-#,##0;""'})
         date_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'border': 1, 'num_format': 'dd/mm/yyyy'})
         plain_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11})
 
         # summary sheet
         summary = workbook.add_worksheet("Summary")
-        writer.sheets['Summary'] = summary  # ensures Pandas won't overwrite
+        writer.sheets['Summary'] = summary
 
         summary.hide_gridlines(2)
         summary.write(0, 0, "List Claim", plain_fmt)
@@ -89,96 +89,77 @@ def save_to_excel_b(df, filename: str):
             ("Total Excess", df["Sum of Excess Total"].sum()),
             ("Total Unpaid", df["Sum of Unpaid"].sum()),
         ]
-        # pjg each column
+        
         col0_max = 0
         col1_max = 0
         
         for name, val in metrics:
             col0_max = max(col0_max, len(str(name)))
             col1_max = max(col1_max, len(f"{val:,}"))
-        
-            # Tulis data
+            
             for i, (name, val) in enumerate(metrics, start=4):
                 summary.write(i, 0, name, borderbold_fmt)
                 summary.write(i, 1, val, num_fmt)
             
-            # set width fot auto width
             summary.set_column(0, 0, max(col0_max + 2, 15))
             summary.set_column(1, 1, max(col1_max + 2, 15))
 
-            
-        # for i, (name, val) in enumerate(metrics, start=4):
-        #     summary.write(i, 0, name, borderbold_fmt)
-        #     summary.write(i, 1, val, num_fmt)
-
         # sc sheet
         sc = workbook.add_worksheet("SC")
-        writer.sheets['SC'] = sc  # ensures Pandas won't overwrite
+        writer.sheets['SC'] = sc 
 
         sc.hide_gridlines(2)
         sc.write(0, 0, "List Claim", plain_fmt)
         sc.write(1, 0, df["Client Name"].iloc[0] if not df.empty else "", plain_fmt)
-        sc.merge_range(2, 0, 2, 1, "YTD Feb 2026", plain_fmt)
+        sc.merge_range(2, 0, 2, 1, "YTD Mar 2026", plain_fmt)
         sc.write(3, 0, "", plain_fmt)
 
-        # table for summary sheet
+        # table header
         for col_idx, col_name in enumerate(df.columns):
             sc.write(4, col_idx, col_name, header_fmt)
 
+
         koma_cols = ["Sum of Billed", "Sum of Accepted", "Sum of Excess Coy",
                      "Sum of Excess Emp", "Sum of Excess Total", "Sum of Unpaid"]
+        
+        date_cols = ["Treatment Start", "Treatment Finish", "Settled Date"]
 
-        # write data with customize format
         df[koma_cols] = df[koma_cols].replace([np.inf, -np.inf], np.nan)
         df[koma_cols] = df[koma_cols].fillna(0)
-        
-        # write data with format
+
+        # biar gada (blanks) lbh rapih
+        other_cols = [c for c in df.columns if c not in koma_cols and c not in date_cols]
+        df[other_cols] = df[other_cols].fillna("")
+
         for r, row_data in enumerate(df.to_dict("records"), start=5):
             for c, (col_name, val) in enumerate(row_data.items()):
         
-                # koma cols (0 -> cell kosong)
                 if col_name in koma_cols:
-                    if pd.isna(val) or val == 0:
-                        sc.write(r, c, None, border_fmt)         # blank cell
+                    if val == 0:
+                        sc.write_number(r, c, 0, num_fmt)
                     else:
-                        try:
-                            sc.write_number(r, c, float(val), num_fmt)
-                        except (TypeError, ValueError):
-                            sc.write_string(r, c, str(val))
+                        sc.write_number(r, c, float(val), num_fmt)
         
-                # Date columns
-                elif col_name in ["Treatment Start", "Treatment Finish", "Settled Date", "Payment Date"]:
+                # write tanggal
+                elif col_name in date_cols:
                     if pd.notna(val):
                         sc.write_datetime(r, c, pd.to_datetime(val), date_fmt)
                     else:
-                        sc.write(r, c, None, border_fmt)
+                        sc.write(r, c, None, border_fmt) # Tanggal boleh blank murni
         
-                # Emp ID keep as text
+                # -emp id
                 elif col_name == "Emp ID":
-                    sc.write(r, c, str(val) if pd.notna(val) else "", border_fmt)
+                    # hrs text
+                    sc.write(r, c, str(val), border_fmt)
         
-                # PrePost (boolean)
-                elif col_name == "PrePost":
-                    if val in [1, "1", True]:
-                        sc.write(r, c, "True", border_fmt)
-                    elif val in [0, "0", False, None]:
-                        sc.write(r, c, "False", border_fmt)
-                    else:
-                        sc.write(r, c, None, border_fmt)
-        
-                # dll klo value 0 -> cell jd kosong
                 else:
-                    if pd.isna(val) or val == 0:
-                        sc.write(r, c, None, border_fmt)
-                    else:
-                        sc.write(r, c, val, border_fmt)
-
-        # sc.set_column(0, len(df.columns)-1, 15)
+                    sc.write(r, c, val, border_fmt)
+                        
+        # auto width
         for idx, col in enumerate(df.columns):
             series = df[col]
-        
             max_len = max(
-                series.astype(str).map(len).max(),  # hanya untuk hitung panjang
+                series.astype(str).map(len).max(),
                 len(str(col)))
             sc.set_column(idx, idx, max_len + 2)
     
