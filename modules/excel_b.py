@@ -62,13 +62,8 @@ def move_to_template(df):
 def save_to_excel_b(df, filename: str):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        # Clean data
-        df = df.copy()
-        df[np.isinf(df)] = np.nan
-        df = df.fillna("")
-        df = df.astype(str)
-        # Write to Excel
-        df.to_excel(writer, sheet_name="Sheet1", index=False)
+        workbook = writer.book
+        df = df.replace([np.nan, np.inf, -np.inf], "")
 
         # format
         header_fmt = workbook.add_format({'font_name': 'Aptos', 'font_size': 11, 'bold': True,'align': 'center', 'border': 1})
