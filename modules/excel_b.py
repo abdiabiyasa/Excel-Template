@@ -122,7 +122,7 @@ def save_to_excel_b(df, filename: str):
         koma_cols = ["Sum of Billed", "Sum of Accepted", "Sum of Excess Coy",
                      "Sum of Excess Emp", "Sum of Excess Total", "Sum of Unpaid"]
         
-        date_cols = ["Treatment Start", "Treatment Finish", "Settled Date"]
+        date_cols = ["Treatment Start", "Treatment Finish", "Settled Date", "Payment Date"]
 
         df[koma_cols] = df[koma_cols].replace([np.inf, -np.inf], np.nan)
         df[koma_cols] = df[koma_cols].fillna(0)
