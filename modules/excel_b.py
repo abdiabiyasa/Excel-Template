@@ -159,7 +159,7 @@ def save_to_excel_b(df, filename: str):
         for idx, col in enumerate(df.columns):
             series = df[col]
             max_len = max(
-                series.astype(str).map(len).max(),
+                series.astype(str).str.len().max(),
                 len(str(col)))
             sc.set_column(idx, idx, max_len + 2)
     
