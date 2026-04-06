@@ -81,7 +81,8 @@ elif st.session_state.option == "SC + Benefit":
         filename = st.text_input("Enter Excel filename:", "SC & Benefit - - YTD", key="fname_c")
 
         if filename:
-            df_sc = df_sc.replace([np.nan, np.inf, -np.inf], "")
+            df_sc = df_sc.copy()
+            df_sc = df_sc.replace([np.inf, -np.inf], np.nan).fillna "")
             df_benefit = df_benefit.replace([np.nan, np.inf, -np.inf], "")
 
             excel_bytes, fname = save_to_excel_c(df_sc, df_benefit, filename + ".xlsx")
