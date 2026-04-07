@@ -130,12 +130,23 @@ elif st.session_state.option == "SC (RWC)":
             df_cr.replace([np.inf, -np.inf], np.nan, inplace=True)
 
             # baru isi NaN
-            df_sc.fillna("", inplace=True)
-            df_benefit.fillna("", inplace=True)
-            df_cr = df_cr.copy()
-            df_cr.replace([np.inf, -np.inf], np.nan, inplace=True)
-            df_cr = df_cr.astype(str)
-            df_cr.replace("nan", "", inplace=True)
+            # untuk df_sc
+            for col in df_sc.select_dtypes(include='object').columns:
+                df_sc[col].fillna("", inplace=True)
+                
+            for col in df_sc.select_dtypes(include=['float64', 'int64']).columns:
+                df_sc[col].fillna(0, inplace=True)
+                
+            # untuk df_benefit
+            for col in df_benefit.select_dtypes(include='object').columns:
+                df_benefit[col].fillna("", inplace=True)
+
+            for col in df_benefit.select_dtypes(include=['float64', 'int64']).columns:
+                df_benefit[col].fillna(0, inplace=True)
+                df_cr = df_cr.copy()
+                df_cr.replace([np.inf, -np.inf], np.nan, inplace=True)
+                df_cr = df_cr.astype(str)
+                df_cr.replace("nan", "", inplace=True)
 
             excel_bytes, fname = save_to_excel_d(
                 df_sc,
