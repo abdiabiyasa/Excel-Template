@@ -284,12 +284,22 @@ def save_to_excel_f(df_sc, df_benefit, filename: str):
         # for autofit
         def autofit(ws, df):
             for i, col in enumerate(df.columns):
-                series = df[col].astype(str).replace("nan", "")
-        try:
-            max_len = max(series.map(len).max(), len(str(col)))
-        except:
+                series = df[col]
+
+        # convert ke string + handle null
+        series = series.astype(str).replace("nan", "")
+
+        # handle jika kolom kosong
+        if series.empty:
             max_len = len(str(col))
+        else:
+            lengths = [len(str(x)) for x in series if x is not None]
             
+            if lengths:
+                max_len = max(lengths + [len(str(col))])
+            else:
+                max_len = len(str(col))
+
         ws.set_column(i, i, max_len + 2)
 
         df_sc = df_sc.astype(str)
