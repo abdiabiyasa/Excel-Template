@@ -207,8 +207,12 @@ def save_to_excel_f(df_sc, df_benefit, filename: str):
                 if col_name in koma_cols:
                     if pd.isna(val) or val == 0:
                         sc.write(r, c, None, border_fmt)         # blank cell
-                    else:
-                        sc.write_number(r, c, float(val), num_fmt)
+                    else :
+                        try:
+                            num = float(str(val).replace(",", ""))
+                            sc.write_number(r, c, num, num_fmt)
+                        except:
+                            sc.write(r, c, val)
         
                 # Date columns
                 elif col_name in ["Treatment Start", "Treatment Finish", "Settled Date"]:
