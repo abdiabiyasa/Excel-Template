@@ -284,12 +284,12 @@ def save_to_excel_f(df_sc, df_benefit, filename: str):
         # for autofit
         def autofit(ws, df):
             for i, col in enumerate(df.columns):
-                series = df[col].astype(str).replace("nan", "")
-        
-        lengths = [len(str(x)) for x in series]
-        max_len = max(lengths + [len(str(col))])
-
-        ws.set_column(i, i, max_len + 2)
+                series = df[col]
+                series = series.astype(str).replace("nan", "")
+                lengths = [len(str(x)) for x in series]
+                max_len = max(lengths + [len(str(col))])
+                
+                ws.set_column(i, i, max_len + 2)
 
         autofit(sc, df_sc)
         autofit(benefit, df_benefit)
