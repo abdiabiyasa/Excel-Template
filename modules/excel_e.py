@@ -193,7 +193,11 @@ def save_to_excel_e(df_sc, df_benefit, filename: str):
                     if pd.isna(val) or val == 0:
                         sc.write(r, c, None, border_fmt)         # blank cell
                     else:
-                        sc.write_number(r, c, float(val), num_fmt)
+                        try:
+                            number = float(str(val).replace(",", "").replace("Rp", "").strip())
+                            sc.write_number(r, c, number, num_fmt)
+                        except:
+                            sc.write(r, c, val)  # fallback kalau bukan angka
         
                 # Date columns
                 elif col_name in ["Treatment Start", "Treatment Finish", "Settled Date"]:
