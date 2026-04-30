@@ -55,6 +55,7 @@ def template_sc(df):
         "Emp ID": new_df["EmpID"],
         "Emp Name": new_df["EmpName"],
         "Patient Name": new_df["PatientName"],
+        "Age": new_df["Age"],
         "Membership": new_df["Membership"],
         "Product Type": new_df["ProductType"],
         "Claim Type": new_df["ClaimType"],
