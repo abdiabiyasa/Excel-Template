@@ -75,18 +75,18 @@ def template_sc(df):
         "Settled Month": new_df["Date"].dt.month,
         "Length of Stay": new_df["LOS"],
         "Sum of Billed": new_df["Billed"],
-        
-        # Buat range harga
-        bins = [0, 5000000, 10000000, 25000000, 50000000, 100000000, float('inf')]
-        labels = ['<5 Mio', '5 - 10 Mio', '10 - 25 Mio', '25 - 50 Mio', '50 - 100 Mio', '>100 Mio']
-        df_transformed['Range Billed'] = pd.cut(
-            df_transformed['Sum of Billed'], bins=bins, labels=labels, right=False)
         "Sum of Accepted": new_df["Accepted"],
         "Sum of Excess Coy": new_df["ExcessCoy"],
         "Sum of Excess Emp": new_df["ExcessEmp"],
         "Sum of Excess Total": new_df["ExcessTotal"],
         "Sum of Unpaid": new_df["Unpaid"],
     })
+    # Buat range harga
+    bins = [0, 5000000, 10000000, 25000000, 50000000, 100000000, float('inf')]
+    labels = ['<5 Mio', '5 - 10 Mio', '10 - 25 Mio', '25 - 50 Mio', '50 - 100 Mio', '>100 Mio']
+    df_transformed['Range Billed'] = pd.cut(
+        df_transformed['Sum of Billed'], bins=bins, labels=labels, right=False, include_lowest=True)
+    
     return df_transformed
     
 # prepro Benefit sheet    
