@@ -238,7 +238,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # -------------------------
     # AGGREGATE SC
     # -------------------------
-    sc_grouped = df_sc.groupby(['Client Name','Policy No'], dropna=False).agg({
+    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type'], dropna=False).agg({
         'Sum of Billed':'sum',
         'Sum of Accepted':'sum',
         'Sum of Unpaid':'sum',
@@ -250,6 +250,13 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # -------------------------
     # MERGE with CR
     # -------------------------
+    # rapihin key
+    cr['Company'] = cr['Company'].astype(str).str.strip().str.upper()
+    cr['Policy No'] = cr['Policy No'].astype(str).str.strip()
+
+    sc_grouped['Client Name'] = sc_grouped['Client Name'].astype(str).str.strip().str.upper()
+    sc_grouped['Policy No'] = sc_grouped['Policy No'].astype(str).str.strip()
+    
     merged = cr.merge(
         sc_grouped,
         left_on=['Company','Policy No'],
@@ -332,7 +339,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
             ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
             ("Claim Ratio (%)", grand_cr, percent_format),
-            ("Est Claim Ratio (%)", grand_cr, percent_format)
+            ("Est Claim Ratio (%)", grand_est_cr, percent_format)
         ]
 
         for i,(name,val,fmt) in enumerate(metrics,start=4):
