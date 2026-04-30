@@ -292,9 +292,9 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged = merged.drop_duplicates(subset=['Policy No','Company','Product'])
 
     cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
-    for c in cr_columns_header:
-        if c not in merged.columns:
-            merged[c] = 0
+    missing_cols = [c for c in cr_columns_header if c not in merged.columns]
+    if missing_cols:
+        st.warning(f"Missing columns in merged: {missing_cols}")
 
     # totals
     grand = {
@@ -303,8 +303,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         'Billed': merged['Billed'].sum(),
         'Unpaid': merged['Unpaid'].sum(),
         'Excess Total': merged['Excess Total'].sum(),
-        'Excess Company': merged['Excess Coy'].sum(),
-        'Excess Employee': merged['Excess Emp'].sum(),
+        'Excess Coy': merged['Excess Coy'].sum(),
+        'Excess Emp': merged['Excess Emp'].sum(),
         'Claim': merged['Claim'].sum()
     }
     grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
@@ -368,7 +368,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                 for ci, col_name in enumerate(cr_columns_header):
                     val = rowdata.get(col_name, 0)
 
-                    if col_name in ('CR', 'Est CR'):
+                    if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
                         summary_sheet.write_number(r, ci, float(val), highlight_yellow)
                     elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Coy','Excess Emp','Claim'):
                         try:
