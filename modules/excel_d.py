@@ -238,14 +238,14 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # -------------------------
     # AGGREGATE SC
     # -------------------------
-    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type'], dropna=False).agg({
+    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type', 'Membership'], dropna=False).agg({
         'Sum of Billed':'sum',
         'Sum of Accepted':'sum',
         'Sum of Unpaid':'sum',
         'Sum of Excess Total':'sum',
         'Sum of Excess Coy':'sum',
         'Sum of Excess Emp':'sum'
-    }).reset_index().rename(columns={'Sum of Accepted':'Claim'})
+    }).reset_index().rename(columns={'Sum of Accepted':'Claim', 'Product Type':'Product', 'Membership':'Member'})
 
     # -------------------------
     # MERGE with CR
@@ -264,6 +264,9 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         how='left',
         suffixes=('','_sc')
     )
+    # Tambahin kolom untuk kebutuhan report
+    merged['Product'] = merged.get('Product Type', '')
+    merged['Member'] = merged.get('Membership', '')
 
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
@@ -281,7 +284,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
-    cr_columns_header = ["Company","Net Premi","Billed","Unpaid","Excess Total","Excess Coy","Excess Emp","Claim","CR","Est CR"]
+    cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
     for c in cr_columns_header:
         if c not in merged.columns:
             merged[c] = 0
@@ -328,6 +331,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         summary_sheet.write(0,0,'List Claim', plain_fmt)
         summary_sheet.write_formula('A2','=SC!A2')
         summary_sheet.write_formula('A3','=SC!A3')
+        summary_sheet.write_formula('A4','=SC!A4')
+        
 
         metrics = [
             ("Total Claims", len(df_sc), num_fmt),
@@ -396,6 +401,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         sc_sheet.write(0,0,'List Claim', plain_fmt)
         sc_sheet.write(1,0, df_sc['Client Name'].iloc[0] if not df_sc.empty else '', plain_fmt)
         sc_sheet.write(2,0,'YTD', plain_fmt)
+        sc_sheet.write(3,0,'Periode of Policy:   ', plain_fmt)
 
         for ci,col_name in enumerate(df_sc.columns):
             sc_sheet.write(4,ci,col_name,header_fmt)
