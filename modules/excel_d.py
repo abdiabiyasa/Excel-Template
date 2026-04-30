@@ -303,8 +303,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         'Billed': merged['Billed'].sum(),
         'Unpaid': merged['Unpaid'].sum(),
         'Excess Total': merged['Excess Total'].sum(),
-        'Excess Coy': merged['Excess Coy'].sum(),
-        'Excess Emp': merged['Excess Emp'].sum(),
+        'Excess Company': merged['Excess Coy'].sum(),
+        'Excess Employee': merged['Excess Emp'].sum(),
         'Claim': merged['Claim'].sum()
     }
     grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
