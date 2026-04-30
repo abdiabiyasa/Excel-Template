@@ -238,15 +238,18 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # -------------------------
     # AGGREGATE SC
     # -------------------------
-    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type', 'Membership'], dropna=False).agg({
+    member_count = df_sc.groupby(['Client Name','Policy No','Product Type'])['Member No'].nunique().reset_index().rename(columns={'Member No': 'Member'})
+    
+    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type'], dropna=False).agg({
         'Sum of Billed':'sum',
         'Sum of Accepted':'sum',
         'Sum of Unpaid':'sum',
         'Sum of Excess Total':'sum',
         'Sum of Excess Coy':'sum',
         'Sum of Excess Emp':'sum'
-    }).reset_index().rename(columns={'Sum of Accepted':'Claim', 'Product Type':'Product', 'Membership':'Member'})
+    }).reset_index().rename(columns={'Sum of Accepted':'Claim', 'Product Type':'Product'})
 
+    sc_grouped = sc_grouped.merge(member_count,on=['Client Name','Policy No','Product Type'],how='left')
     # -------------------------
     # MERGE with CR
     # -------------------------
@@ -404,7 +407,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         sc_sheet.write(3,0,'Periode of Policy:   ', plain_fmt)
 
         for ci,col_name in enumerate(df_sc.columns):
-            sc_sheet.write(4,ci,col_name,header_fmt)
+            sc_sheet.write(6,ci,col_name,header_fmt)
 
         koma_cols = ['Sum of Billed','Sum of Accepted','Sum of Excess Coy','Sum of Excess Emp','Sum of Excess Total','Sum of Unpaid']
 
