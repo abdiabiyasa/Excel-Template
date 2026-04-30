@@ -287,6 +287,12 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
+    # mapping ke nama kolom report
+    merged['Claim Ratio'] = merged['CR']
+    merged['Est Claim Ratio Full Year'] = merged['Est CR']
+    merged['Excess Company'] = merged['Excess Coy']
+    merged['Excess Employee'] = merged['Excess Emp']
+    
     cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
     for c in cr_columns_header:
         if c not in merged.columns:
@@ -364,7 +370,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                 for ci, col_name in enumerate(cr_columns_header):
                     val = rowdata.get(col_name, 0)
 
-                    if col_name in ('CR', 'Est CR'):
+                    if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
                         summary_sheet.write_number(r, ci, float(val), highlight_yellow)
                     elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Coy','Excess Emp','Claim'):
                         try:
