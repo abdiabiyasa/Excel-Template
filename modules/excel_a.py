@@ -110,7 +110,7 @@ def save_to_excel_a(df, filename: str):
         sc.hide_gridlines(2)
         sc.write(0, 0, "List Claim", plain_fmt)
         sc.write(1, 0, df["Client Name"].iloc[0] if not df.empty else "", plain_fmt)
-        sc.merge_range(2, 0, 2, 1, "YTD Mar 2026", plain_fmt)
+        sc.merge_range(2, 0, 2, 1, "YTD Apr 2026", plain_fmt)
         sc.write(3, 0, "", plain_fmt)
 
         # table header
