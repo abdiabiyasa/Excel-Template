@@ -303,8 +303,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         'Billed': merged['Billed'].sum(),
         'Unpaid': merged['Unpaid'].sum(),
         'Excess Total': merged['Excess Total'].sum(),
-        'Excess Company': merged['Excess Coy'].sum(),
-        'Excess Employee': merged['Excess Emp'].sum(),
+        'Excess Company': merged['Excess Company'].sum(),
+        'Excess Employee': merged['Excess Employee'].sum(),
         'Claim': merged['Claim'].sum()
     }
     grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
@@ -368,9 +368,9 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                 for ci, col_name in enumerate(cr_columns_header):
                     val = rowdata.get(col_name, 0)
 
-                    if col_name in ('CR', 'Est CR'):
+                    if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
                         summary_sheet.write_number(r, ci, float(val), highlight_yellow)
-                    elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Coy','Excess Emp','Claim'):
+                    elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Company','Excess Employee','Claim'):
                         try:
                             numeric_val = float(val) if pd.notna(val) else 0
                         except Exception:
@@ -386,9 +386,9 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         # Grand total
         summary_sheet.write(r,0,'Grand Total',bold_plain_border)
         for ci,col_name in enumerate(cr_columns_header[1:],start=1):
-            if col_name == 'CR':
+            if col_name == 'Claim Ratio':
                 summary_sheet.write_number(r,ci,grand_cr,highlight_yellow_bold)
-            elif col_name == 'Est CR':
+            elif col_name == 'Est Claim Ratio Full Year':
                 summary_sheet.write_number(r,ci,grand_est_cr,highlight_yellow_bold)
             else:
                 v = grand.get(col_name, '')
