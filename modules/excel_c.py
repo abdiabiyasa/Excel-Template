@@ -178,7 +178,7 @@ def save_to_excel_c(df_sc, df_benefit, filename: str):
 
         sc.write(0, 0, "List Claim", plain_fmt)
         sc.write(1, 0, df_sc["Client Name"].iloc[0] if not df_sc.empty else "", plain_fmt)
-        sc.merge_range(2, 0, 2, 1, "YTD Mar 2026", plain_fmt)
+        sc.merge_range(2, 0, 2, 1, "YTD Apr 2026", plain_fmt)
 
         #Header
         for col_idx, col_name in enumerate(df_sc.columns):
