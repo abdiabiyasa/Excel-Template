@@ -90,44 +90,55 @@ def template_sc(df):
 # prepro Benefit sheet    
 def template_benefit(df):
     df.columns = df.columns.str.strip()
- 
+
     for col in df.columns:
         if df[col].dtype == "object":
             df[col] = df[col].astype(str).str.strip()
- 
-        # Rename columns
-        rename_mapping = {
-            'ClientName': 'Client Name',
-            'PolicyNo': 'Policy No',
-            'ClaimNo': 'Claim No',
-            'MemberNo': 'Member No',
-            'PatientName': 'Patient Name',
-            'EmpID': 'Emp ID',
-            'EmpName': 'Emp Name',
-            'ClaimType': 'Claim Type',
-            'TreatmentPlace': 'Treatment Place',
-            'RoomOption': 'Room Option',
-            'TreatmentRoomClass': 'Treatment Room Class',
-            'TreatmentStart': 'Treatment Start',
-            'TreatmentFinish': 'Treatment Finish',
-            'ProductType': 'Product Type',
-            'BenefitName': 'Benefit Name',
-            'PaymentDate': 'Payment Date',
-            'ExcessTotal': 'Excess Total',
-            'ExcessCoy': 'Excess Coy',
-            'ExcessEmp': 'Excess Emp'
-        }
-        df = df.rename(columns=rename_mapping)
-        date_cols = ["Treatment Start", "Treatment Finish", "Payment Date"]
-        for col in date_cols:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-        # Clean Room Option and Treatment Room Class
-        if "Room Option" in df.columns:
-            df["Room Option"] = df["Room Option"].fillna('').astype(str).str.replace(r"\s+", "", regex=True)
-        if "Treatment Room Class" in df.columns:
-            df["Treatment Room Class"] = df["Treatment Room Class"].fillna('')
-        return df.drop(columns=["Status_Claim", "BAmount"], errors='ignore')
+
+    # Rename columns
+    rename_mapping = {
+        'ClientName': 'Client Name',
+        'PolicyNo': 'Policy No',
+        'ClaimNo': 'Claim No',
+        'MemberNo': 'Member No',
+        'PatientName': 'Patient Name',
+        'EmpID': 'Emp ID',
+        'EmpName': 'Emp Name',
+        'ClaimType': 'Claim Type',
+        'TreatmentPlace': 'Treatment Place',
+        'RoomOption': 'Room Option',
+        'TreatmentRoomClass': 'Treatment Room Class',
+        'TreatmentStart': 'Treatment Start',
+        'TreatmentFinish': 'Treatment Finish',
+        'ProductType': 'Product Type',
+        'BenefitName': 'Benefit Name',
+        'PaymentDate': 'Payment Date',
+        'ExcessTotal': 'Excess Total',
+        'ExcessCoy': 'Excess Coy',
+        'ExcessEmp': 'Excess Emp'
+    }
+
+    df = df.rename(columns=rename_mapping)
+
+    date_cols = ["Treatment Start", "Treatment Finish", "Payment Date"]
+
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+
+    # Clean Room Option and Treatment Room Class
+    if "Room Option" in df.columns:
+        df["Room Option"] = (
+            df["Room Option"]
+            .fillna('')
+            .astype(str)
+            .str.replace(r"\s+", "", regex=True)
+        )
+
+    if "Treatment Room Class" in df.columns:
+        df["Treatment Room Class"] = df["Treatment Room Class"].fillna('')
+
+    return df.drop(columns=["Status_Claim", "BAmount"], errors='ignore')
  
  
 def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
@@ -260,8 +271,24 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         suffixes=('','_sc')
     )
     # Tambahin kolom untuk kebutuhan report
-    merged['Product'] = merged.get('Product Type', '')
-    merged['Member'] = merged.get('Membership', 0)
+    #Member dari data Claim Ratio
+    member_col_candidates = ['Member', 'Members', 'Total Member', 'Total Members']
+    member_col = next(
+     (c for c in cr.columns if c.strip() in member_col_candidates), None)
+
+    if member_col:
+     member_lookup = (cr[['Policy No', member_col]].drop_duplicates(subset=['Policy No']).rename(columns={member_col: 'Member'}))
+     merged = merged.merge(member_lookup,on='Policy No',how='left')
+    else:
+    merged['Member'] = 0
+ 
+    #Product dari data SC
+    product_lookup = (df_sc.groupby('Policy No')['Product Type'].apply(lambda x: ', '.join(sorted(set(x.dropna().astype(str))))).reset_index().rename(columns={'Product Type': 'Product'}))
+
+    merged = merged.merge(product_lookup,on='Policy No',how='left')
+
+    merged['Product'] = merged['Product'].fillna('')
+    merged['Member'] = merged['Member'].fillna(0)
  
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
