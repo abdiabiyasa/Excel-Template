@@ -21,10 +21,17 @@ def keep_last_duplicate(df):
         st.write("Duplicated ClaimNo values:")
         st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
 
-    return df.drop_duplicates(
-        subset=['ClaimNo', 'BenefitName'],
-        keep='last'
-    )
+    # cek apakah BenefitName ada
+    if 'BenefitName' in df.columns:
+        return df.drop_duplicates(
+            subset=['ClaimNo', 'BenefitName'],
+            keep='last'
+        )
+    else:
+        return df.drop_duplicates(
+            subset=['ClaimNo'],
+            keep='last'
+        )
 
 
 def filter_benefit_data(df_benefit, df_sc):
