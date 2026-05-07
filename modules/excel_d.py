@@ -1,117 +1,56 @@
 # excel_d.py
-
 import pandas as pd
 import numpy as np
 import streamlit as st
 from io import BytesIO
-
-
-# =========================
-# DATA CLEANING
-# =========================
-
+ 
+# data cleaning function
 def filter_data(df):
     return df[df['ClaimStatus'] == 'R']
-
-
+ 
 def keep_last_duplicate(df):
-
-    # cek apakah BenefitName ada
-    subset_cols = ['ClaimNo']
-
-    if 'BenefitName' in df.columns:
-        subset_cols.append('BenefitName')
-
-    duplicate_claims = df[
-        df.duplicated(subset=subset_cols, keep=False)
-    ]
-
+    duplicate_claims = df[df.duplicated(subset='ClaimNo', keep=False)]
     if not duplicate_claims.empty:
-        st.write("Duplicated Claim values:")
-        st.write(
-            duplicate_claims[subset_cols].drop_duplicates()
-        )
+        st.write("Duplicated ClaimNo values:")
+        st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
 
-    return df.drop_duplicates(
-        subset=subset_cols,
-        keep='last'
-    )
-
-
-# =========================
-# FILTER BENEFIT
-# =========================
-
+    return df.drop_duplicates(subset='ClaimNo', keep='last')
+ 
 def filter_benefit_data(df_benefit, df_sc):
-
     df_benefit = df_benefit.copy()
     df_benefit.columns = df_benefit.columns.str.strip()
-
-    # filter status claim
+ 
+    # Filter status claim R
     if 'Status_Claim' in df_benefit.columns:
-        df_benefit = df_benefit[
-            df_benefit['Status_Claim'] == 'R'
-        ]
-
+        df_benefit = df_benefit[df_benefit['Status_Claim'] == 'R']
     elif 'Status Claim' in df_benefit.columns:
-        df_benefit = df_benefit[
-            df_benefit['Status Claim'] == 'R'
-        ]
-
+        df_benefit = df_benefit[df_benefit['Status Claim'] == 'R']
     else:
-        st.warning(
-            "Column 'Status Claim' not found."
-        )
-
-    # filter claim no
+        st.warning("Column 'Status Claim' not found. Data not filtered.")
+ 
+    # Filter claim no supaya hanya yang ada di SC
     if "ClaimNo" in df_benefit.columns:
-
-        df_benefit = df_benefit[
-            df_benefit["ClaimNo"].isin(
-                df_sc["Claim No"]
-            )
-        ]
-
+        df_benefit = df_benefit[df_benefit["ClaimNo"].isin(df_sc["Claim No"])]
     elif "Claim No" in df_benefit.columns:
-
-        df_benefit = df_benefit[
-            df_benefit["Claim No"].isin(
-                df_sc["Claim No"]
-            )
-        ]
-
+        df_benefit = df_benefit[df_benefit["Claim No"].isin(df_sc["Claim No"])]
+ 
     return df_benefit
-
-
-# =========================
-# TEMPLATE SC
-# =========================
-
+ 
 def template_sc(df):
-
     new_df = filter_data(df)
     new_df = keep_last_duplicate(new_df)
-
-    # convert dates
-    date_columns = [
-        "TreatmentStart",
-        "TreatmentFinish",
-        "Date"
-    ]
+ 
+    # Convert date columns
+    date_columns = ["TreatmentStart", "TreatmentFinish", "Date"]
 
     for col in date_columns:
+        new_df[col] = pd.to_datetime(new_df[col], errors='coerce')
 
-        if col in new_df.columns:
-
-            new_df[col] = pd.to_datetime(
-                new_df[col],
-                errors='coerce'
-            )
-
+        if new_df[col].isnull().any():
+            st.warning(f"Invalid date values in '{col}', coerced to NaT.")
+ 
     df_transformed = pd.DataFrame({
-
         "No": range(1, len(new_df) + 1),
-
         "Policy No": new_df["PolicyNo"],
         "Client Name": new_df["ClientName"],
         "Claim No": new_df["ClaimNo"],
@@ -123,52 +62,21 @@ def template_sc(df):
         "Membership": new_df["Membership"],
         "Product Type": new_df["ProductType"],
         "Claim Type": new_df["ClaimType"],
-
-        "Room Option": (
-            new_df["RoomOption"]
-            .fillna('')
-            .astype(str)
-            .str.upper()
-            .str.replace(r"\s+", "", regex=True)
-        ),
-
+        "Room Option": new_df["RoomOption"].fillna('').astype(str).str.upper().str.replace(r"\s+", "", regex=True),
         "Area": new_df["Area"],
         "Plan": new_df["PPlan"],
         "PrePost": new_df["isPrePost2"],
-
-        "Primary Diagnosis":
-            new_df["PrimaryDiagnosis"].astype(str).str.upper(),
-
-        "Secondary Diagnosis":
-            new_df["SecondaryDiagnosis"]
-            .fillna('')
-            .astype(str)
-            .str.upper(),
-
-        "Treatment Place":
-            new_df["TreatmentPlace"]
-            .astype(str)
-            .str.upper(),
-
+        "Primary Diagnosis": new_df["PrimaryDiagnosis"].str.upper(),
+        "Secondary Diagnosis": new_df["SecondaryDiagnosis"].fillna('').str.upper(),
+        "Treatment Place": new_df["TreatmentPlace"].str.upper(),
         "Treatment Start": new_df["TreatmentStart"],
         "Treatment Finish": new_df["TreatmentFinish"],
-
-        "Treatment Year":
-            new_df["TreatmentStart"].dt.year,
-
-        "Treatment Month":
-            new_df["TreatmentStart"].dt.month,
-
+        "Treatment Year": new_df["TreatmentStart"].dt.year,
+        "Treatment Month": new_df["TreatmentStart"].dt.month,
         "Settled Date": new_df["Date"],
-
-        "Settled Year":
-            new_df["Date"].dt.year,
-
-        "Settled Month":
-            new_df["Date"].dt.month,
-
+        "Settled Year": new_df["Date"].dt.year,
+        "Settled Month": new_df["Date"].dt.month,
         "Length of Stay": new_df["LOS"],
-
         "Sum of Billed": new_df["Billed"],
         "Sum of Accepted": new_df["Accepted"],
         "Sum of Excess Coy": new_df["ExcessCoy"],
@@ -177,25 +85,9 @@ def template_sc(df):
         "Sum of Unpaid": new_df["Unpaid"],
     })
 
-    # range billed
-    bins = [
-        0,
-        5000000,
-        10000000,
-        25000000,
-        50000000,
-        100000000,
-        float('inf')
-    ]
-
-    labels = [
-        '<5 Mio',
-        '5 - 10 Mio',
-        '10 - 25 Mio',
-        '25 - 50 Mio',
-        '50 - 100 Mio',
-        '>100 Mio'
-    ]
+    # Buat range harga
+    bins = [0, 5000000, 10000000, 25000000, 50000000, 100000000, float('inf')]
+    labels = ['<5 Mio', '5 - 10 Mio', '10 - 25 Mio', '25 - 50 Mio', '50 - 100 Mio', '>100 Mio']
 
     df_transformed['Range Billed'] = pd.cut(
         df_transformed['Sum of Billed'],
@@ -208,27 +100,17 @@ def template_sc(df):
     return df_transformed
 
 
-# =========================
-# TEMPLATE BENEFIT
-# =========================
-
+# prepro Benefit sheet
 def template_benefit(df):
 
     df.columns = df.columns.str.strip()
 
-    # trim object columns
     for col in df.columns:
-
         if df[col].dtype == "object":
+            df[col] = df[col].astype(str).str.strip()
 
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.strip()
-            )
-
+    # Rename columns
     rename_mapping = {
-
         'ClientName': 'Client Name',
         'PolicyNo': 'Policy No',
         'ClaimNo': 'Claim No',
@@ -252,7 +134,6 @@ def template_benefit(df):
 
     df = df.rename(columns=rename_mapping)
 
-    # convert dates
     date_cols = [
         "Treatment Start",
         "Treatment Finish",
@@ -260,17 +141,11 @@ def template_benefit(df):
     ]
 
     for col in date_cols:
-
         if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
 
-            df[col] = pd.to_datetime(
-                df[col],
-                errors='coerce'
-            )
-
-    # clean room option
+    # Clean Room Option
     if "Room Option" in df.columns:
-
         df["Room Option"] = (
             df["Room Option"]
             .fillna('')
@@ -278,9 +153,7 @@ def template_benefit(df):
             .str.replace(r"\s+", "", regex=True)
         )
 
-    # clean treatment room class
     if "Treatment Room Class" in df.columns:
-
         df["Treatment Room Class"] = (
             df["Treatment Room Class"]
             .fillna('')
