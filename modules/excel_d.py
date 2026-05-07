@@ -9,7 +9,6 @@ def filter_data(df):
     return df[df['ClaimStatus'] == 'R']
  
 def keep_last_duplicate(df):
-
     # rapikan nama kolom
     df.columns = (
         df.columns
@@ -29,6 +28,11 @@ def keep_last_duplicate(df):
 
     duplicate_claims = df[df.duplicated(subset='ClaimNo', keep=False)]
 
+    if not duplicate_claims.empty:
+        st.write("Duplicated ClaimNo values:")
+        st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
+
+    return df.drop_duplicates(subset='ClaimNo', keep='last')
     if not duplicate_claims.empty:
         st.write("Duplicated ClaimNo values:")
         st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
