@@ -516,17 +516,17 @@ def run_d(uploaded_sc, uploaded_benefit, uploaded_cr, policy_filter_list):
  
     # load Claim Ratio (xlsx)
     try:
-        df_cr_raw = pd.read_excel(uploaded_cr)
+       df_cr_raw = pd.read_excel(uploaded_cr)
      
-    #rapikan nama kolom
-    df_cr_raw.columns = (
-       df_cr_raw.columns
-       .str.strip()
-       .str.replace(" ", "", regex=False))
- 
-    except Exception as e:
-        st.error(f"Error reading Claim Ratio file: {e}")
-        df_cr_raw = pd.DataFrame()
+       df_cr_raw.columns = (
+          df_cr_raw.columns
+          .str.strip()
+          .str.replace(" ", "", regex=False)
+    )
+
+except Exception as e:
+    st.error(f"Error reading Claim Ratio file: {e}")
+    df_cr_raw = pd.DataFrame()
  
     # prepro SC and benefit using excel_c logic
     df_sc_clean = template_sc(df_sc_raw)
