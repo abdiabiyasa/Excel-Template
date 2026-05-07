@@ -1,317 +1,293 @@
 # excel_d.py
 
 import pandas as pd
+import numpy as np
 import streamlit as st
 from io import BytesIO
 
 
-# =====================================================
+# =========================================================
+# HELPER
+# =========================================================
+
+def normalize_columns(df):
+    df = df.copy()
+    df.columns = df.columns.str.strip()
+    return df
+
+
+def safe_numeric(series):
+    return pd.to_numeric(
+        series.astype(str).str.replace(",", "", regex=False),
+        errors="coerce"
+    ).fillna(0)
+
+
+def safe_datetime(series):
+    return pd.to_datetime(series, errors="coerce")
+
+
+# =========================================================
 # FILTER DATA
-# =====================================================
+# =========================================================
 
 def filter_data(df):
-    if 'ClaimStatus' not in df.columns:
-        st.error("Column 'ClaimStatus' tidak ditemukan.")
-        return df
+    return df[df["ClaimStatus"] == "R"]
 
-    return df[df['ClaimStatus'] == 'R']
-
-
-# =====================================================
-# REMOVE DUPLICATE
-# =====================================================
 
 def keep_last_duplicate(df):
 
-    if 'ClaimNo' not in df.columns:
-        st.error("Column 'ClaimNo' tidak ditemukan.")
-        return df
-
-    duplicate_claims = df[
-        df.duplicated(subset='ClaimNo', keep=False)
-    ]
+    duplicate_claims = df[df.duplicated(subset="ClaimNo", keep=False)]
 
     if not duplicate_claims.empty:
         st.write("Duplicated ClaimNo values:")
         st.write(
-            duplicate_claims[['ClaimNo']].drop_duplicates()
+            duplicate_claims[["ClaimNo"]].drop_duplicates()
         )
 
-    # Jika BenefitName ada
-    if 'BenefitName' in df.columns:
-        return df.drop_duplicates(
-            subset=['ClaimNo', 'BenefitName'],
-            keep='last'
-        )
-
-    # Jika BenefitName tidak ada
     return df.drop_duplicates(
-        subset=['ClaimNo'],
-        keep='last'
+        subset=["ClaimNo", "BenefitName"],
+        keep="last"
     )
 
 
-# =====================================================
-# FILTER BENEFIT
-# =====================================================
+# =========================================================
+# BENEFIT FILTER
+# =========================================================
 
 def filter_benefit_data(df_benefit, df_sc):
 
-    df_benefit = df_benefit.copy()
-    df_benefit.columns = df_benefit.columns.str.strip()
+    df_benefit = normalize_columns(df_benefit)
 
-    # Filter status claim
-    if 'Status_Claim' in df_benefit.columns:
+    # filter status claim
+    if "Status_Claim" in df_benefit.columns:
         df_benefit = df_benefit[
-            df_benefit['Status_Claim'] == 'R'
+            df_benefit["Status_Claim"] == "R"
         ]
 
-    elif 'Status Claim' in df_benefit.columns:
+    elif "Status Claim" in df_benefit.columns:
         df_benefit = df_benefit[
-            df_benefit['Status Claim'] == 'R'
+            df_benefit["Status Claim"] == "R"
         ]
 
     else:
-        st.warning(
-            "Column 'Status Claim' tidak ditemukan."
-        )
+        st.warning("Column Status Claim not found")
 
-    # Filter ClaimNo
+    # filter claim no
     if "ClaimNo" in df_benefit.columns:
-
         df_benefit = df_benefit[
-            df_benefit["ClaimNo"].isin(
-                df_sc["Claim No"]
-            )
+            df_benefit["ClaimNo"].isin(df_sc["Claim No"])
         ]
 
     elif "Claim No" in df_benefit.columns:
-
         df_benefit = df_benefit[
-            df_benefit["Claim No"].isin(
-                df_sc["Claim No"]
-            )
+            df_benefit["Claim No"].isin(df_sc["Claim No"])
         ]
 
     return df_benefit
 
 
-# =====================================================
+# =========================================================
 # TEMPLATE SC
-# =====================================================
+# =========================================================
 
 def template_sc(df):
 
-    new_df = filter_data(df)
-    new_df = keep_last_duplicate(new_df)
+    df = filter_data(df)
+    df = keep_last_duplicate(df)
 
-    # Convert date
-    date_columns = [
+    # datetime
+    date_cols = [
         "TreatmentStart",
         "TreatmentFinish",
         "Date"
     ]
 
-    for col in date_columns:
+    for col in date_cols:
+        df[col] = safe_datetime(df[col])
 
-        if col in new_df.columns:
-
-            new_df[col] = pd.to_datetime(
-                new_df[col],
-                errors='coerce'
-            )
-
-    df_transformed = pd.DataFrame({
+    transformed = pd.DataFrame({
 
         "No":
-            range(1, len(new_df) + 1),
+            range(1, len(df) + 1),
 
         "Policy No":
-            new_df.get("PolicyNo"),
+            df["PolicyNo"],
 
         "Client Name":
-            new_df.get("ClientName"),
+            df["ClientName"],
 
         "Claim No":
-            new_df.get("ClaimNo"),
+            df["ClaimNo"],
 
         "Member No":
-            new_df.get("MemberNo"),
+            df["MemberNo"],
 
         "Emp ID":
-            new_df.get("EmpID"),
+            df["EmpID"],
 
         "Emp Name":
-            new_df.get("EmpName"),
+            df["EmpName"],
 
         "Patient Name":
-            new_df.get("PatientName"),
+            df["PatientName"],
 
         "Age":
-            new_df.get("Age"),
+            df["Age"],
 
         "Membership":
-            new_df.get("Membership"),
+            df["Membership"],
 
         "Product Type":
-            new_df.get("ProductType"),
+            df["ProductType"],
 
         "Claim Type":
-            new_df.get("ClaimType"),
+            df["ClaimType"],
 
         "Room Option":
-            new_df.get("RoomOption", "")
-            .fillna('')
+            df["RoomOption"]
+            .fillna("")
             .astype(str)
             .str.upper()
             .str.replace(r"\s+", "", regex=True),
 
         "Area":
-            new_df.get("Area"),
+            df["Area"],
 
         "Plan":
-            new_df.get("PPlan"),
+            df["PPlan"],
 
         "PrePost":
-            new_df.get("isPrePost2"),
+            df["isPrePost2"],
 
         "Primary Diagnosis":
-            new_df.get("PrimaryDiagnosis", "")
-            .fillna('')
-            .astype(str)
+            df["PrimaryDiagnosis"]
+            .fillna("")
             .str.upper(),
 
         "Secondary Diagnosis":
-            new_df.get("SecondaryDiagnosis", "")
-            .fillna('')
-            .astype(str)
+            df["SecondaryDiagnosis"]
+            .fillna("")
             .str.upper(),
 
         "Treatment Place":
-            new_df.get("TreatmentPlace", "")
-            .fillna('')
-            .astype(str)
+            df["TreatmentPlace"]
+            .fillna("")
             .str.upper(),
 
         "Treatment Start":
-            new_df.get("TreatmentStart"),
+            df["TreatmentStart"],
 
         "Treatment Finish":
-            new_df.get("TreatmentFinish"),
+            df["TreatmentFinish"],
 
         "Treatment Year":
-            new_df.get("TreatmentStart").dt.year,
+            df["TreatmentStart"].dt.year,
 
         "Treatment Month":
-            new_df.get("TreatmentStart").dt.month,
+            df["TreatmentStart"].dt.month,
 
         "Settled Date":
-            new_df.get("Date"),
+            df["Date"],
 
         "Settled Year":
-            new_df.get("Date").dt.year,
+            df["Date"].dt.year,
 
         "Settled Month":
-            new_df.get("Date").dt.month,
+            df["Date"].dt.month,
 
         "Length of Stay":
-            new_df.get("LOS"),
+            df["LOS"],
 
         "Sum of Billed":
-            new_df.get("Billed"),
+            safe_numeric(df["Billed"]),
 
         "Sum of Accepted":
-            new_df.get("Accepted"),
+            safe_numeric(df["Accepted"]),
 
         "Sum of Excess Coy":
-            new_df.get("ExcessCoy"),
+            safe_numeric(df["ExcessCoy"]),
 
         "Sum of Excess Emp":
-            new_df.get("ExcessEmp"),
+            safe_numeric(df["ExcessEmp"]),
 
         "Sum of Excess Total":
-            new_df.get("ExcessTotal"),
+            safe_numeric(df["ExcessTotal"]),
 
         "Sum of Unpaid":
-            new_df.get("Unpaid"),
+            safe_numeric(df["Unpaid"]),
     })
 
-    # Range billed
+    # range billed
     bins = [
         0,
-        5000000,
-        10000000,
-        25000000,
-        50000000,
-        100000000,
-        float('inf')
+        5_000_000,
+        10_000_000,
+        25_000_000,
+        50_000_000,
+        100_000_000,
+        np.inf
     ]
 
     labels = [
-        '<5 Mio',
-        '5 - 10 Mio',
-        '10 - 25 Mio',
-        '25 - 50 Mio',
-        '50 - 100 Mio',
-        '>100 Mio'
+        "<5 Mio",
+        "5 - 10 Mio",
+        "10 - 25 Mio",
+        "25 - 50 Mio",
+        "50 - 100 Mio",
+        ">100 Mio"
     ]
 
-    df_transformed['Range Billed'] = pd.cut(
-        df_transformed['Sum of Billed'],
+    transformed["Range Billed"] = pd.cut(
+        transformed["Sum of Billed"],
         bins=bins,
         labels=labels,
-        right=False,
-        include_lowest=True
+        right=False
     )
 
-    return df_transformed
+    return transformed
 
 
-# =====================================================
+# =========================================================
 # TEMPLATE BENEFIT
-# =====================================================
+# =========================================================
 
 def template_benefit(df):
 
-    df.columns = df.columns.str.strip()
+    df = normalize_columns(df)
 
-    # Trim text
+    # trim object
     for col in df.columns:
-
         if df[col].dtype == "object":
-
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.strip()
-            )
+            df[col] = df[col].astype(str).str.strip()
 
     rename_mapping = {
 
-        'ClientName': 'Client Name',
-        'PolicyNo': 'Policy No',
-        'ClaimNo': 'Claim No',
-        'MemberNo': 'Member No',
-        'PatientName': 'Patient Name',
-        'EmpID': 'Emp ID',
-        'EmpName': 'Emp Name',
-        'ClaimType': 'Claim Type',
-        'TreatmentPlace': 'Treatment Place',
-        'RoomOption': 'Room Option',
-        'TreatmentRoomClass': 'Treatment Room Class',
-        'TreatmentStart': 'Treatment Start',
-        'TreatmentFinish': 'Treatment Finish',
-        'ProductType': 'Product Type',
-        'BenefitName': 'Benefit Name',
-        'PaymentDate': 'Payment Date',
-        'ExcessTotal': 'Excess Total',
-        'ExcessCoy': 'Excess Coy',
-        'ExcessEmp': 'Excess Emp'
+        "ClientName": "Client Name",
+        "PolicyNo": "Policy No",
+        "ClaimNo": "Claim No",
+        "MemberNo": "Member No",
+        "PatientName": "Patient Name",
+        "EmpID": "Emp ID",
+        "EmpName": "Emp Name",
+        "ClaimType": "Claim Type",
+        "TreatmentPlace": "Treatment Place",
+        "RoomOption": "Room Option",
+        "TreatmentRoomClass": "Treatment Room Class",
+        "TreatmentStart": "Treatment Start",
+        "TreatmentFinish": "Treatment Finish",
+        "ProductType": "Product Type",
+        "BenefitName": "Benefit Name",
+        "PaymentDate": "Payment Date",
+        "ExcessTotal": "Excess Total",
+        "ExcessCoy": "Excess Coy",
+        "ExcessEmp": "Excess Emp"
+
     }
 
     df = df.rename(columns=rename_mapping)
 
-    # Convert date
+    # datetime
     date_cols = [
         "Treatment Start",
         "Treatment Finish",
@@ -319,23 +295,27 @@ def template_benefit(df):
     ]
 
     for col in date_cols:
-
         if col in df.columns:
+            df[col] = safe_datetime(df[col])
 
-            df[col] = pd.to_datetime(
-                df[col],
-                errors='coerce'
-            )
+    # room option
+    if "Room Option" in df.columns:
+        df["Room Option"] = (
+            df["Room Option"]
+            .fillna("")
+            .astype(str)
+            .str.replace(r"\s+", "", regex=True)
+        )
 
     return df.drop(
         columns=["Status_Claim", "BAmount"],
-        errors='ignore'
+        errors="ignore"
     )
 
 
-# =====================================================
+# =========================================================
 # SAVE TO EXCEL
-# =====================================================
+# =========================================================
 
 def save_to_excel_d(
     df_sc,
@@ -348,167 +328,219 @@ def save_to_excel_d(
 
     with pd.ExcelWriter(
         output,
-        engine='xlsxwriter'
+        engine="xlsxwriter"
     ) as writer:
-
-        # Save sheets
-        df_sc.to_excel(
-            writer,
-            sheet_name='SC',
-            index=False
-        )
-
-        df_benefit.to_excel(
-            writer,
-            sheet_name='Benefit',
-            index=False
-        )
-
-        claim_ratio_df.to_excel(
-            writer,
-            sheet_name='Summary',
-            index=False
-        )
 
         workbook = writer.book
 
-        header_format = workbook.add_format({
-            'bold': True,
-            'border': 1,
-            'align': 'center'
+        # =================================================
+        # FORMAT
+        # =================================================
+
+        header_fmt = workbook.add_format({
+            "bold": True,
+            "border": 1,
+            "align": "center"
         })
 
-        border_format = workbook.add_format({
-            'border': 1
+        border_fmt = workbook.add_format({
+            "border": 1
         })
 
-        number_format = workbook.add_format({
-            'border': 1,
-            'num_format': '#,##0'
+        num_fmt = workbook.add_format({
+            "border": 1,
+            "num_format": "#,##0"
         })
 
-        date_format = workbook.add_format({
-            'border': 1,
-            'num_format': 'dd/mm/yyyy'
+        date_fmt = workbook.add_format({
+            "border": 1,
+            "num_format": "dd/mm/yyyy"
         })
 
-        sheets = {
-            'SC': df_sc,
-            'Benefit': df_benefit,
-            'Summary': claim_ratio_df
-        }
+        # =================================================
+        # SUMMARY
+        # =================================================
 
-        for sheet_name, df in sheets.items():
+        summary = workbook.add_worksheet("Summary")
+        writer.sheets["Summary"] = summary
 
-            worksheet = writer.sheets[sheet_name]
+        metrics = [
+            ("Total Claims", len(df_sc)),
+            ("Total Billed", df_sc["Sum of Billed"].sum()),
+            ("Total Accepted", df_sc["Sum of Accepted"].sum()),
+            ("Total Excess", df_sc["Sum of Excess Total"].sum()),
+            ("Total Unpaid", df_sc["Sum of Unpaid"].sum())
+        ]
 
-            # Header
-            for col_num, value in enumerate(df.columns):
+        for i, (label, value) in enumerate(metrics):
 
-                worksheet.write(
-                    0,
-                    col_num,
-                    value,
-                    header_format
-                )
+            summary.write(i, 0, label, border_fmt)
+            summary.write(i, 1, value, num_fmt)
 
-            # Body
-            for row_num, row in enumerate(
-                df.itertuples(index=False),
-                start=1
-            ):
+        # =================================================
+        # SC SHEET
+        # =================================================
 
-                for col_num, value in enumerate(row):
+        sc_sheet = workbook.add_worksheet("SC")
+        writer.sheets["SC"] = sc_sheet
 
-                    col_name = df.columns[col_num]
+        # header
+        for col_num, col_name in enumerate(df_sc.columns):
+            sc_sheet.write(
+                0,
+                col_num,
+                col_name,
+                header_fmt
+            )
 
-                    # Date
-                    if pd.api.types.is_datetime64_any_dtype(
-                        df[col_name]
-                    ):
+        # body
+        for row_num, row in enumerate(
+            df_sc.to_dict("records"),
+            start=1
+        ):
 
-                        if pd.notna(value):
+            for col_num, (col_name, value) in enumerate(row.items()):
 
-                            worksheet.write_datetime(
-                                row_num,
-                                col_num,
-                                pd.to_datetime(value),
-                                date_format
-                            )
-
-                        else:
-
-                            worksheet.write_blank(
-                                row_num,
-                                col_num,
-                                None,
-                                border_format
-                            )
-
-                    # Numeric
-                    elif pd.api.types.is_numeric_dtype(
-                        df[col_name]
-                    ):
-
-                        if pd.isna(value):
-
-                            worksheet.write_blank(
-                                row_num,
-                                col_num,
-                                None,
-                                number_format
-                            )
-
-                        else:
-
-                            worksheet.write_number(
-                                row_num,
-                                col_num,
-                                float(value),
-                                number_format
-                            )
-
-                    # Text
-                    else:
-
-                        worksheet.write(
-                            row_num,
-                            col_num,
-                            str(value),
-                            border_format
-                        )
-
-            # Autofit
-            for i, col in enumerate(df.columns):
-
-                try:
-
-                    max_len = max(
-                        df[col]
-                        .astype(str)
-                        .apply(len)
-                        .max(),
-                        len(str(col))
+                if pd.isna(value) or value == 0:
+                    sc_sheet.write_blank(
+                        row_num,
+                        col_num,
+                        None,
+                        border_fmt
                     )
 
-                except Exception:
+                elif "Date" in col_name or "Treatment" in col_name:
 
-                    max_len = len(str(col))
+                    try:
+                        sc_sheet.write_datetime(
+                            row_num,
+                            col_num,
+                            pd.to_datetime(value),
+                            date_fmt
+                        )
+                    except:
+                        sc_sheet.write(
+                            row_num,
+                            col_num,
+                            value,
+                            border_fmt
+                        )
 
-                worksheet.set_column(
-                    i,
-                    i,
+                elif isinstance(value, (int, float)):
+                    sc_sheet.write_number(
+                        row_num,
+                        col_num,
+                        value,
+                        num_fmt
+                    )
+
+                else:
+                    sc_sheet.write(
+                        row_num,
+                        col_num,
+                        value,
+                        border_fmt
+                    )
+
+        # =================================================
+        # BENEFIT SHEET
+        # =================================================
+
+        benefit_sheet = workbook.add_worksheet("Benefit")
+        writer.sheets["Benefit"] = benefit_sheet
+
+        # header
+        for col_num, col_name in enumerate(df_benefit.columns):
+            benefit_sheet.write(
+                0,
+                col_num,
+                col_name,
+                header_fmt
+            )
+
+        # body
+        for row_num, row in enumerate(
+            df_benefit.to_dict("records"),
+            start=1
+        ):
+
+            for col_num, (col_name, value) in enumerate(row.items()):
+
+                if pd.isna(value) or value == 0:
+
+                    benefit_sheet.write_blank(
+                        row_num,
+                        col_num,
+                        None,
+                        border_fmt
+                    )
+
+                elif "Date" in col_name or "Treatment" in col_name:
+
+                    try:
+                        benefit_sheet.write_datetime(
+                            row_num,
+                            col_num,
+                            pd.to_datetime(value),
+                            date_fmt
+                        )
+
+                    except:
+                        benefit_sheet.write(
+                            row_num,
+                            col_num,
+                            value,
+                            border_fmt
+                        )
+
+                elif isinstance(value, (int, float)):
+
+                    benefit_sheet.write_number(
+                        row_num,
+                        col_num,
+                        value,
+                        num_fmt
+                    )
+
+                else:
+
+                    benefit_sheet.write(
+                        row_num,
+                        col_num,
+                        value,
+                        border_fmt
+                    )
+
+        # =================================================
+        # AUTOFIT
+        # =================================================
+
+        def autofit(sheet, df):
+
+            for idx, col in enumerate(df.columns):
+
+                max_len = max(
+                    df[col].astype(str).map(len).max(),
+                    len(col)
+                )
+
+                sheet.set_column(
+                    idx,
+                    idx,
                     max_len + 5
                 )
+
+        autofit(sc_sheet, df_sc)
+        autofit(benefit_sheet, df_benefit)
 
     output.seek(0)
 
     return output.getvalue(), filename
 
 
-# =====================================================
-# RUN MAIN
-# =====================================================
+# =========================================================
+# MAIN RUN
+# =========================================================
 
 def run_d(
     uploaded_sc,
@@ -517,30 +549,29 @@ def run_d(
     policy_filter_list
 ):
 
-    # Read SC
+    # read csv
     df_sc_raw = pd.read_csv(uploaded_sc)
-
-    # Read Benefit
     df_benefit_raw = pd.read_csv(uploaded_benefit)
 
-    # Read Claim Ratio
+    # read claim ratio
     try:
-
         df_cr_raw = pd.read_excel(uploaded_cr)
 
     except Exception as e:
 
-        st.error(
-            f"Error reading Claim Ratio file: {e}"
-        )
-
+        st.error(f"Error reading CR file: {e}")
         df_cr_raw = pd.DataFrame()
 
-    # Clean SC
+    # process sc
     df_sc_clean = template_sc(df_sc_raw)
 
-    # Filter policy
+    # filter policy
     if policy_filter_list:
+
+        policy_filter_list = [
+            str(x).strip()
+            for x in policy_filter_list
+        ]
 
         df_sc_clean["Policy No"] = (
             df_sc_clean["Policy No"]
@@ -549,12 +580,11 @@ def run_d(
         )
 
         df_sc_clean = df_sc_clean[
-            df_sc_clean["Policy No"].isin(
-                [str(p).strip() for p in policy_filter_list]
-            )
+            df_sc_clean["Policy No"]
+            .isin(policy_filter_list)
         ]
 
-    # Benefit
+    # benefit
     df_benefit_filtered = filter_benefit_data(
         df_benefit_raw,
         df_sc_clean
@@ -564,17 +594,44 @@ def run_d(
         df_benefit_filtered
     )
 
-    # Claim Ratio
+    # claim ratio
     if not df_cr_raw.empty:
 
-        df_cr_filtered = df_cr_raw.copy()
+        cr_cols = [
+            c for c in df_cr_raw.columns
+            if c.strip().lower()
+            in ["policy no", "policyno", "policy"]
+        ]
 
-        df_cr_filtered.columns = (
-            df_cr_filtered.columns.str.strip()
-        )
+        if cr_cols:
+
+            policy_col = cr_cols[0]
+
+            df_cr_raw[policy_col] = (
+                df_cr_raw[policy_col]
+                .astype(str)
+                .str.strip()
+            )
+
+            if policy_filter_list:
+
+                df_cr_filtered = df_cr_raw[
+                    df_cr_raw[policy_col]
+                    .isin(policy_filter_list)
+                ]
+
+            else:
+                df_cr_filtered = df_cr_raw.copy()
+
+        else:
+
+            st.warning(
+                "Policy No column not found in CR file"
+            )
+
+            df_cr_filtered = df_cr_raw.copy()
 
     else:
-
         df_cr_filtered = pd.DataFrame()
 
     return (
