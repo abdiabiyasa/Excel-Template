@@ -254,24 +254,14 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     sc_grouped['Policy No'] = (sc_grouped['Policy No'].astype(str).str.strip())
  
     # rename kolom member dari claim ratio
-    member_col = next(
-    (
-        c for c in cr.columns
-        if c.strip().lower() in [
-            'member',
-            'members',
-            'member count',
-            'total member',
-            'lives'
-        ]
-    ),
-    None
-)
+    member_col = next((col for col in cr.columns if col.strip().lower() in ['member','members','member count','total member','lives',]), None)
 
-if member_col:
-    cr = cr.rename(columns={member_col: 'Member'})
-else:
-    cr['Member'] = 0
+    # Rename menjadi "Member"
+    if member_col:
+     cr = cr.rename(columns={member_col: 'Member'})
+    else:
+     cr['Member'] = 0
+       
  
     # merge
     merged = cr.merge(sc_grouped, on='Policy No', how='left',suffixes=('', '_sc'))
