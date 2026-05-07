@@ -22,17 +22,6 @@ def keep_last_duplicate(df):
         st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
 
     return df.drop_duplicates(subset='ClaimNo', keep='last')
-
-    if not duplicate_claims.empty:
-        st.write("Duplicated ClaimNo values:")
-        st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
-
-    return df.drop_duplicates(subset='ClaimNo', keep='last')
-    if not duplicate_claims.empty:
-        st.write("Duplicated ClaimNo values:")
-        st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
-
-    return df.drop_duplicates(subset='ClaimNo', keep='last')
  
 def filter_benefit_data(df_benefit, df_sc):
     df_benefit = df_benefit.copy()
