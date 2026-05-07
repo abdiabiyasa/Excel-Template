@@ -13,7 +13,7 @@ def keep_last_duplicate(df):
     if not duplicate_claims.empty:
         st.write("Duplicated ClaimNo values:")
         st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
-    return df.drop_duplicates(subset='ClaimNo', keep='last')
+    return df.drop_duplicates(subset='ClaimNo', 'BenefitName', keep='last')
  
 def filter_benefit_data(df_benefit, df_sc):
     df_benefit = df_benefit.copy()
@@ -260,8 +260,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         suffixes=('','_sc')
     )
     # Tambahin kolom untuk kebutuhan report
-    merged['Product'] = merged.get('Product Type', '')
-    merged['Member'] = merged.get('Membership', 0)
+    merged['Product'] = merged.get('Product', '')
  
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
