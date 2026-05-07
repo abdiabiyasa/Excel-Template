@@ -250,18 +250,20 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     cr['Company'] = cr['Company'].astype(str).str.strip().str.upper()
     cr['Policy No'] = cr['Policy No'].astype(str).str.strip()
  
-    sc_grouped['Client Name'] = sc_grouped['Client Name'].astype(str).str.strip().str.upper()
-    sc_grouped['Policy No'] = sc_grouped['Policy No'].astype(str).str.strip()
-    merged = cr.merge(
-        sc_grouped,
-        left_on=['Company','Policy No'],
-        right_on=['Client Name','Policy No'],
-        how='left',
-        suffixes=('','_sc')
-    )
-    # Tambahin kolom untuk kebutuhan report
-    merged['Product'] = merged.get('Product', '')
+    sc_grouped['Client Name'] = (sc_grouped['Client Name'].astype(str).str.strip().str.upper())
+    sc_grouped['Policy No'] = (sc_grouped['Policy No'].astype(str).str.strip())
  
+    # rename kolom member dari claim ratio
+    member_col = next((c for c in cr.columns 
+                       if c.strip().lower() in ['member', 'members']),None)
+    if member_col:
+     cr = cr.rename(columns={member_col: 'Member'})
+    else:
+     cr['Member'] = 0
+
+    # merge
+    merged = cr.merge(sc_grouped,left_on=['Company', 'Policy No'],right_on=['Client Name', 'Policy No'],how='left',suffixes=('', '_sc'))
+
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
         merged[col] = pd.to_numeric(merged.get(col, 0), errors='coerce').fillna(0)
