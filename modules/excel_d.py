@@ -407,7 +407,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
         koma_cols = ['Sum of Billed','Sum of Accepted','Sum of Excess Coy','Sum of Excess Emp','Sum of Excess Total','Sum of Unpaid']
  
-        for rr, rowdata in enumerate(df_sc.to_dict("records"), start=5):
+        for rr, rowdata in enumerate(df_sc.to_dict("records"), start=7):
             for ci, (col_name, val) in enumerate(rowdata.items()):
                 # koma cols ( 0 -> cell kosong)
                 if col_name in koma_cols:
