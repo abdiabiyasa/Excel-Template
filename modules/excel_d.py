@@ -285,7 +285,13 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     #Product dari data SC
     product_lookup = (df_sc.groupby('Policy No')['Product Type'].apply(lambda x: ', '.join(sorted(set(x.dropna().astype(str))))).reset_index().rename(columns={'Product Type': 'Product'}))
 
-    merged = merged.merge(product_lookup,on='Policy No',how='left')
+    merged = merged.merge(product_lookup,on='Policy No',how='left',suffixes=('', '_lookup'))
+
+    if 'Product' not in merged.columns:
+        if 'Product_lookup' in merged.columns:
+            merged['Product'] = merged['Product_lookup']
+        else:
+            merged['Product'] = ''
 
     merged['Product'] = merged['Product'].fillna('')
     merged['Member'] = merged['Member'].fillna(0)
