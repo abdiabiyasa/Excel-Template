@@ -325,7 +325,11 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
     merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
- 
+
+    merged['Policy Claim Total'] = merged.groupby(['Policy No', 'Company'])['Claim'].transform('sum')
+    merged['Policy CR'] = (merged['Policy Claim Total'] / merged['Net Premi'] * 100)
+    merged['Policy CR'] = merged['Policy CR'].fillna(0)
+    
     merged = merged.rename(columns={'Excess Coy': 'Excess Company','Excess Emp': 'Excess Employee','CR': 'Claim Ratio','Est CR': 'Est Claim Ratio Full Year'})
  
     merged = merged.drop_duplicates(subset=['Policy No','Company','Product'])
@@ -338,14 +342,15 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # totals
     grand_base = merged.drop_duplicates(subset=['Policy No', 'Company'])
     grand = {
-     'Net Premi': grand_base['Net Premi'].sum(),
-     'Est Claim Total': grand_base['Est Claim Total'].sum(),
+     'Net Premi': merged.drop_duplicates(subset=['Policy No', 'Company'])['Net Premi'].sum(),
+     'Est Claim Total': merged.drop_duplicates(subset=['Policy No', 'Company'])['Est Claim Total'].sum(),
      'Billed': merged['Billed'].sum(),
      'Unpaid': merged['Unpaid'].sum(),
      'Excess Total': merged['Excess Total'].sum(),
      'Excess Company': merged['Excess Company'].sum(),
      'Excess Employee': merged['Excess Employee'].sum(),
-     'Claim': grand_base['Claim'].sum()
+     # CLAIM harus total semua product
+     'Claim': merged['Claim'].sum()
     }
 
  
@@ -415,14 +420,17 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
           
           first_row = start_row
           last_row = start_row + len(group) - 1
-
-          merge_cols = ['Policy No','Company','Member','Net Premi','Claim','Claim Ratio','Est Claim Ratio Full Year']
           
           for idx, rowdata in group.iterrows():
            excel_row = start_row + idx
            for ci, col_name in enumerate(cr_columns_header):
             val = rowdata.get(col_name, 0)
-            
+            if col_name == 'Claim':
+             val = rowdata.get('Policy Claim Total', 0)
+            if col_name == 'Claim Ratio':
+             val = rowdata.get('Policy CR', 0)
+            # kolom yang mau di merge
+            merge_cols = ['Policy No','Company','Member','Net Premi','Claim','Claim Ratio','Est Claim Ratio Full Year']
             # skip penulisan selain row pertama
             if col_name in merge_cols and idx > 0:
              continue
@@ -431,25 +439,26 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             if col_name in merge_cols and len(group) > 1:
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
               summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),highlight_yellow)
-             elif col_name in ('Net Premi', 'Claim', 'Member'):
-              summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),num_fmt)
+             elif col_name in ('Net Premi', 'Claim'):summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),num_fmt)
              else:
               summary_sheet.merge_range(first_row, ci,last_row, ci,val,plain_border)
             else:
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
               summary_sheet.write_number(excel_row, ci, float(val), highlight_yellow)
-             elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Company','Excess Employee','Claim','Member'):
-              summary_sheet.write_number(excel_row,ci,float(val) if pd.notna(val) else 0,num_fmt)
+             elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Company','Excess Employee','Claim'):
+              try:
+               numeric_val = float(val) if pd.notna(val) else 0
+              except:
+               numeric_val = 0
+              summary_sheet.write_number(excel_row, ci, numeric_val, num_fmt)
              else:
-              summary_sheet.write(excel_row,ci,val,plain_border)
+              summary_sheet.write(excel_row, ci, val, plain_border)
            start_row += len(group)
-          r = start_row
+           r = start_row
         else:
          summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
          r += 1
-
-
-              
+ 
         # SC sheet — unchanged
         sc_sheet = workbook.add_worksheet('SC')
         writer.sheets['SC'] = sc_sheet
