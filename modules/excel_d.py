@@ -350,7 +350,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
      'Excess Company': merged['Excess Company'].sum(),
      'Excess Employee': merged['Excess Employee'].sum(),
      # CLAIM harus total semua product
-     merged['Policy Claim Total'] = merged.groupby(['Policy No', 'Company'])['Claim'].transform('sum')}
+     'Claim': grand_base['Policy Claim Total'].sum()
+    }
 
  
     grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
