@@ -452,8 +452,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               summary_sheet.write_number(excel_row, ci, numeric_val, num_fmt)
              else:
               summary_sheet.write(excel_row, ci, val, plain_border)
-           start_row += len(group)
-           r = start_row
+          start_row += len(group)
+          r = start_row
         else:
          summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
          r += 1
