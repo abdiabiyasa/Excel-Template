@@ -288,27 +288,27 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged = merged.merge(product_lookup,on='Policy No',how='left',suffixes=('', '_lookup'))
 
     if 'Product' not in merged.columns:
-    if 'Product_x' in merged.columns:
-        merged['Product'] = merged['Product_x']
-    elif 'Product_y' in merged.columns:
-        merged['Product'] = merged['Product_y']
-    elif 'Product_old' in merged.columns:
-        merged['Product'] = merged['Product_old']
-    else:
-        merged['Product'] = ''
+     if 'Product_x' in merged.columns:
+      merged['Product'] = merged['Product_x']
+     elif 'Product_y' in merged.columns:
+      merged['Product'] = merged['Product_y']
+     elif 'Product_old' in merged.columns:
+      merged['Product'] = merged['Product_old']
+     else:
+      merged['Product'] = ''
 
-merged['Product'] = merged['Product'].fillna('')
+    merged['Product'] = merged['Product'].fillna('')
 
-# pastikan Member ada
-if 'Member' not in merged.columns:
-    if 'Member_x' in merged.columns:
-        merged['Member'] = merged['Member_x']
-    elif 'Member_y' in merged.columns:
-        merged['Member'] = merged['Member_y']
-    else:
-        merged['Member'] = 0
+    # pastikan Member ada
+    if 'Member' not in merged.columns:
+     if 'Member_x' in merged.columns:
+      merged['Member'] = merged['Member_x']
+     elif 'Member_y' in merged.columns:
+      merged['Member'] = merged['Member_y']
+     else:
+      merged['Member'] = 0
 
-merged['Member'] = merged['Member'].fillna(0)
+    merged['Member'] = merged['Member'].fillna(0)
  
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
