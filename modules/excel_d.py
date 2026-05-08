@@ -350,8 +350,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
      'Excess Company': merged['Excess Company'].sum(),
      'Excess Employee': merged['Excess Employee'].sum(),
      # CLAIM harus total semua product
-     'Claim': grand_base['Policy Claim Total'].sum()
-    }
+     merged['Policy Claim Total'] = merged.groupby(['Policy No', 'Company'])['Claim'].transform('sum')}
 
  
     grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
@@ -425,10 +424,6 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
            excel_row = start_row + idx
            for ci, col_name in enumerate(cr_columns_header):
             val = rowdata.get(col_name, 0)
-            if col_name == 'Claim':
-             val = rowdata.get('Policy Claim Total', 0)
-            if col_name == 'Claim Ratio':
-             val = rowdata.get('Policy CR', 0)
             # kolom yang mau di merge
             merge_cols = ['Policy No','Company','Member','Net Premi','Claim','Claim Ratio','Est Claim Ratio Full Year']
             # skip penulisan selain row pertama
@@ -453,8 +448,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               summary_sheet.write_number(excel_row, ci, numeric_val, num_fmt)
              else:
               summary_sheet.write(excel_row, ci, val, plain_border)
-          start_row += len(group)
-          r = start_row
+           start_row += len(group)
+           r = start_row
         else:
          summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
          r += 1
