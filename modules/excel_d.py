@@ -447,7 +447,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                last_row, 
                ci,float(val) if pd.notna(val) else 0, 
                num_fmt)
-            else:
+             else:
              if col_name == 'Member':
               summary_sheet.merge_range(first_row, ci, last_row, ci,float(val) if pd.notna(val) else 0,num_fmt)
              else:
@@ -486,7 +486,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         # Est Claim Ratio
         summary_sheet.write_number(r,12,float(grand_est_cr),highlight_yellow_bold)
         
-        r += 1
+         r += 1
         
         else:
          summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
