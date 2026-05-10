@@ -412,151 +412,178 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         r = cr_start + 1
  
         if not merged.empty:
-
-    # group by policy + company
-    grouped_rows = merged.groupby(['Policy No', 'Company'], sort=False)
-    start_row = r
-
-    for (policy_no, company), group in grouped_rows:
-
-        group = group.reset_index(drop=True)
-
-        first_row = start_row
-        last_row = start_row + len(group) - 1
-
-        for idx, rowdata in group.iterrows():
-
-            excel_row = start_row + idx
-
-            for ci, col_name in enumerate(cr_columns_header):
-
-                val = rowdata.get(col_name, 0)
-
-                if col_name == 'Claim':
-                    val = rowdata.get('Policy Claim Total', 0)
-
-                if col_name == 'Claim Ratio':
-                    val = rowdata.get('Policy CR', 0)
-
-                merge_cols = [
-                    'Policy No',
-                    'Company',
-                    'Member',
-                    'Net Premi',
-                    'Claim',
-                    'Claim Ratio',
-                    'Est Claim Ratio Full Year'
-                ]
-
-                # skip selain row pertama untuk merge cols
-                if col_name in merge_cols and idx > 0:
-                    continue
-
-                # MERGE CELL
-                if col_name in merge_cols and len(group) > 1:
-
-                    if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
-
-                        summary_sheet.merge_range(
-                            first_row,
-                            ci,
-                            last_row,
-                            ci,
-                            float(val),
-                            highlight_yellow
-                        )
-
-                    elif col_name in ('Net Premi', 'Claim', 'Member'):
-
-                        summary_sheet.merge_range(
-                            first_row,
-                            ci,
-                            last_row,
-                            ci,
-                            float(val) if pd.notna(val) else 0,
-                            num_fmt
-                        )
-
-                    else:
-
-                        summary_sheet.merge_range(
-                            first_row,
-                            ci,
-                            last_row,
-                            ci,
-                            val,
-                            plain_border
-                        )
-
-                else:
-
-                    if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
-
-                        summary_sheet.write_number(
-                            excel_row,
-                            ci,
-                            float(val),
-                            highlight_yellow
-                        )
-
-                    elif col_name in (
-                        'Net Premi',
-                        'Est Claim Total',
-                        'Billed',
-                        'Unpaid',
-                        'Excess Total',
-                        'Excess Company',
-                        'Excess Employee',
-                        'Claim'
-                    ):
-
-                        try:
-                            numeric_val = float(val) if pd.notna(val) else 0
-                        except:
-                            numeric_val = 0
-
-                        summary_sheet.write_number(
-                            excel_row,
-                            ci,
-                            numeric_val,
-                            num_fmt
-                        )
-
-                    else:
-
-                        summary_sheet.write(
-                            excel_row,
-                            ci,
-                            val,
-                            plain_border
-                        )
-
-        start_row += len(group)
-        r = start_row
-        #GRAND TOTAL ROW
-        summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
-        member_total = grand_base['Member'].sum() if 'Member' in grand_base.columns else 0
-        grand_values = {
-         3: member_total,
-         4: grand['Net Premi'],
-         5: grand['Billed'],
-         6: grand['Unpaid'],
-         7: grand['Excess Total'],
-         8: grand['Excess Company'],
-         9: grand['Excess Employee'],
-         10: grand['Claim']
-        }
-        for col_idx, value in grand_values.items():
-         summary_sheet.write_number(r, col_idx, float(value), bold_plain_border)
-         
-        # Claim Ratio
-        summary_sheet.write_number(r,11,float(grand_cr),highlight_yellow_bold)
-        # Est Claim Ratio
-        summary_sheet.write_number(r,12,float(grand_est_cr),highlight_yellow_bold)
-        r += 1
+         # group by policy + company
+         grouped_rows = merged.groupby(['Policy No', 'Company'], sort=False)
+         start_row = r
+        
+         for (policy_no, company), group in grouped_rows:
+        
+          group = group.reset_index(drop=True)
+        
+          first_row = start_row
+          last_row = start_row + len(group) - 1
+        
+          for idx, rowdata in group.iterrows():
+        
+           excel_row = start_row + idx
+        
+           for ci, col_name in enumerate(cr_columns_header):
+        
+            val = rowdata.get(col_name, 0)
+        
+            if col_name == 'Claim':
+             val = rowdata.get('Policy Claim Total', 0)
+        
+            if col_name == 'Claim Ratio':
+             val = rowdata.get('Policy CR', 0)
+        
+            merge_cols = [
+             'Policy No',
+             'Company',
+             'Member',
+             'Net Premi',
+             'Claim',
+             'Claim Ratio',
+             'Est Claim Ratio Full Year'
+            ]
+        
+            # skip selain row pertama untuk merge cols
+            if col_name in merge_cols and idx > 0:
+             continue
+        
+            # MERGE CELL
+            if col_name in merge_cols and len(group) > 1:
+        
+             if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
+        
+              summary_sheet.merge_range(
+               first_row,
+               ci,
+               last_row,
+               ci,
+               float(val),
+               highlight_yellow
+              )
+        
+             elif col_name in ('Net Premi', 'Claim', 'Member'):
+        
+              summary_sheet.merge_range(
+               first_row,
+               ci,
+               last_row,
+               ci,
+               float(val) if pd.notna(val) else 0,
+               num_fmt
+              )
+        
+             else:
+        
+              summary_sheet.merge_range(
+               first_row,
+               ci,
+               last_row,
+               ci,
+               val,
+               plain_border
+              )
+        
+            else:
+        
+             if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
+        
+              summary_sheet.write_number(
+               excel_row,
+               ci,
+               float(val),
+               highlight_yellow
+              )
+        
+             elif col_name in (
+              'Net Premi',
+              'Est Claim Total',
+              'Billed',
+              'Unpaid',
+              'Excess Total',
+              'Excess Company',
+              'Excess Employee',
+              'Claim'
+             ):
+        
+              try:
+               numeric_val = float(val) if pd.notna(val) else 0
+              except:
+               numeric_val = 0
+        
+              summary_sheet.write_number(
+               excel_row,
+               ci,
+               numeric_val,
+               num_fmt
+              )
+        
+             else:
+        
+              summary_sheet.write(
+               excel_row,
+               ci,
+               val,
+               plain_border
+              )
+        
+          start_row += len(group)
+          r = start_row
+        
+         # GRAND TOTAL ROW
+         summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
+        
+         member_total = grand_base['Member'].sum() if 'Member' in grand_base.columns else 0
+        
+         grand_values = {
+          3: member_total,
+          4: grand['Net Premi'],
+          5: grand['Billed'],
+          6: grand['Unpaid'],
+          7: grand['Excess Total'],
+          8: grand['Excess Company'],
+          9: grand['Excess Employee'],
+          10: grand['Claim']
+         }
+        
+         for col_idx, value in grand_values.items():
+          summary_sheet.write_number(
+           r,
+           col_idx,
+           float(value),
+           bold_plain_border
+          )
+        
+         # Claim Ratio
+         summary_sheet.write_number(
+          r,
+          11,
+          float(grand_cr),
+          highlight_yellow_bold
+         )
+        
+         # Est Claim Ratio
+         summary_sheet.write_number(
+          r,
+          12,
+          float(grand_est_cr),
+          highlight_yellow_bold
+         )
+        
+         r += 1
         
         else:
-         summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
+        
+         summary_sheet.write(
+          r,
+          0,
+          'No Claim Ratio data',
+          plain_border
+         )
+        
          r += 1
  
         # SC sheet — unchanged
