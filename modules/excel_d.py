@@ -342,14 +342,14 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # totals
     grand_base = merged.drop_duplicates(subset=['Policy No', 'Company'])
     grand = {
-     'Net Premi': merged.drop_duplicates(subset=['Policy No', 'Company'])['Net Premi'].sum(),
-     'Est Claim Total': merged.drop_duplicates(subset=['Policy No', 'Company'])['Est Claim Total'].sum(),
+     'Net Premi': grand_base['Net Premi'].sum(),
+     'Est Claim Total': grand_base['Est Claim Total'].sum(),
      'Billed': merged['Billed'].sum(),
      'Unpaid': merged['Unpaid'].sum(),
      'Excess Total': merged['Excess Total'].sum(),
      'Excess Company': merged['Excess Company'].sum(),
      'Excess Employee': merged['Excess Employee'].sum(),
-     # CLAIM harus total semua product
+     # pakai policy total supaya tidak duplicate antar product
      'Claim': grand_base['Policy Claim Total'].sum()
     }
 
