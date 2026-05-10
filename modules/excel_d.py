@@ -440,8 +440,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             if col_name in merge_cols and len(group) > 1:
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
               summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),highlight_yellow)
-             elif col_name in ('Net Premi', 'Claim'):summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),num_fmt)
-             else:
+             elif col_name in ('Net Premi', 'Claim'):summary_sheet.merge_range(first_row, ci,last_row, ci,float(val) if pd.notna(val) else 0, num_fmt)
               else:
                if col_name == 'Member':
                 summary_sheet.merge_range(first_row, ci, last_row, ci,float(val) if pd.notna(val) else 0,num_fmt)
@@ -508,9 +507,15 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
          eff_col = next((c for c in cr.columns if c.strip().lower() in ['effective date','effective_date']),None)
          end_col = next((c for c in cr.columns if c.strip().lower() in ['end date','end_date']),None)
          
-         if eff_col and end_col:cr[eff_col] = pd.to_datetime(cr[eff_col], errors='coerce')cr[end_col] = pd.to_datetime(cr[end_col], errors='coerce')
+         if eff_col and end_col:
+          cr[eff_col] = pd.to_datetime(cr[eff_col], errors='coerce')
+          cr[end_col] = pd.to_datetime(cr[end_col], errors='coerce')
+          
           min_eff = cr[eff_col].min()
           max_end = cr[end_col].max()
+          
+          if pd.notna(min_eff) and pd.notna(max_end):
+           period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
 
           if pd.notna(min_eff) and pd.notna(max_end):
            period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
