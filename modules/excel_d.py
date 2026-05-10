@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from io import BytesIO
+from datetime import datetime
  
 # data cleaning function
 def filter_data(df):
@@ -374,7 +375,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         header_border = workbook.add_format({'bold':True,'border':1,'align':'center','font_name':'Aptos','num_format':'#,##0;[Red]-#,##0;"-";@'})
         highlight_yellow = workbook.add_format({'bg_color':'#FFFF00','border':1,'num_format':'0.00"%"','font_name':'Aptos','align':'center','valign':'vcenter'})
         highlight_yellow_bold = workbook.add_format({'bg_color':'#FFFF00','border':1,'bold':True,'num_format':'0.00"%"','font_name':'Aptos'})
-        percent_format = workbook.add_format({'border': 1, 'num_format': '0.00"%"', 'font_name': 'Aptos'})
+        percent_format = workbook.add_format({'border': 1, 'num_format': '0.00"%"', 'font_name': 'Aptos', 'align':'center','valign':'vcenter'})
         boolean_format = workbook.add_format({'border': 1, 'font_name': 'Aptos', 'num_format': '"TRUE";;"FALSE"' })
  
         # Summary
@@ -441,7 +442,11 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),highlight_yellow)
              elif col_name in ('Net Premi', 'Claim'):summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),num_fmt)
              else:
-              summary_sheet.merge_range(first_row, ci,last_row, ci,val,plain_border)
+              else:
+               if col_name == 'Member':
+                summary_sheet.merge_range(first_row, ci, last_row, ci,float(val) if pd.notna(val) else 0,num_fmt)
+               else:
+                summary_sheet.merge_range(first_row, ci, last_row, ci,val,plain_border)
             else:
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
               summary_sheet.write_number(excel_row, ci, float(val), highlight_yellow)
@@ -455,6 +460,29 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               summary_sheet.write(excel_row, ci, val, plain_border)
           start_row += len(group)
           r = start_row
+        #GRAND TOTAL ROW
+        summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
+        member_total = grand_base['Member'].sum() if 'Member' in grand_base.columns else 0
+        grand_values = {
+         3: member_total,
+         4: grand['Net Premi'],
+         5: grand['Billed'],
+         6: grand['Unpaid'],
+         7: grand['Excess Total'],
+         8: grand['Excess Company'],
+         9: grand['Excess Employee'],
+         10: grand['Claim']
+        }
+        for col_idx, value in grand_values.items():
+         summary_sheet.write_number(r, col_idx, float(value), bold_plain_border)
+         
+        # Claim Ratio
+        summary_sheet.write_number(r,11,float(grand_cr),highlight_yellow_bold)
+        # Est Claim Ratio
+        summary_sheet.write_number(r,12,float(grand_est_cr),highlight_yellow_bold)
+        
+        r += 1
+        
         else:
          summary_sheet.write(r,0,'No Claim Ratio data',plain_border)
          r += 1
@@ -465,8 +493,30 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         sc_sheet.hide_gridlines(2)
         sc_sheet.write(0,0,'List Claim', plain_fmt)
         sc_sheet.write(1,0, df_sc['Client Name'].iloc[0] if not df_sc.empty else '', plain_fmt)
-        sc_sheet.write(2,0,'YTD', plain_fmt)
-        sc_sheet.write(3,0,'Periode of Policy:   ', plain_fmt)
+        today = datetime.today()
+        if today.month == 1:
+         ytd_month = 12
+         ytd_year = today.year - 1
+        else:
+         ytd_month = today.month - 1
+         ytd_year = today.year
+        month_name = datetime(ytd_year, ytd_month, 1).strftime('%B')
+        ytd_text = f"YTD {month_name} {ytd_year}"
+        sc_sheet.write(2,0,ytd_text, plain_fmt)
+        period_text = 'Periode of Policy: -'
+        try:
+         eff_col = next((c for c in cr.columns if c.strip().lower() in ['effective date','effective_date']),None)
+         end_col = next((c for c in cr.columns if c.strip().lower() in ['end date','end_date']),None)
+         
+         if eff_col and end_col:cr[eff_col] = pd.to_datetime(cr[eff_col], errors='coerce')cr[end_col] = pd.to_datetime(cr[end_col], errors='coerce')
+          min_eff = cr[eff_col].min()
+          max_end = cr[end_col].max()
+
+          if pd.notna(min_eff) and pd.notna(max_end):
+           period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
+        except Exception:pass
+
+        sc_sheet.write(3,0,period_text, plain_fmt)
  
         for ci,col_name in enumerate(df_sc.columns):
             sc_sheet.write(6,ci,col_name,header_fmt)
