@@ -440,25 +440,31 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             if col_name in merge_cols and len(group) > 1:
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
               summary_sheet.merge_range(first_row, ci,last_row, ci,float(val),highlight_yellow)
-             elif col_name in ('Net Premi', 'Claim'):summary_sheet.merge_range(first_row, ci,last_row, ci,float(val) if pd.notna(val) else 0, num_fmt)
-              else:
-               if col_name == 'Member':
-                summary_sheet.merge_range(first_row, ci, last_row, ci,float(val) if pd.notna(val) else 0,num_fmt)
-               else:
-                summary_sheet.merge_range(first_row, ci, last_row, ci,val,plain_border)
+             elif col_name in ('Net Premi', 'Claim'):
+              summary_sheet.merge_range(
+               first_row, 
+               ci,
+               last_row, 
+               ci,float(val) if pd.notna(val) else 0, 
+               num_fmt)
             else:
-             if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
-              summary_sheet.write_number(excel_row, ci, float(val), highlight_yellow)
-             elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Company','Excess Employee','Claim'):
-              try:
-               numeric_val = float(val) if pd.notna(val) else 0
-              except:
-               numeric_val = 0
-              summary_sheet.write_number(excel_row, ci, numeric_val, num_fmt)
+             if col_name == 'Member':
+              summary_sheet.merge_range(first_row, ci, last_row, ci,float(val) if pd.notna(val) else 0,num_fmt)
              else:
-              summary_sheet.write(excel_row, ci, val, plain_border)
-          start_row += len(group)
-          r = start_row
+              summary_sheet.merge_range(first_row, ci, last_row, ci,val,plain_border)
+           else:
+            if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
+             summary_sheet.write_number(excel_row, ci, float(val), highlight_yellow)
+            elif col_name in ('Net Premi','Est Claim Total','Billed','Unpaid','Excess Total','Excess Company','Excess Employee','Claim'):
+             try:
+              numeric_val = float(val) if pd.notna(val) else 0
+             except:
+              numeric_val = 0
+             summary_sheet.write_number(excel_row, ci, numeric_val, num_fmt)
+            else:
+             summary_sheet.write(excel_row, ci, val, plain_border)
+           start_row += len(group)
+           r = start_row
         #GRAND TOTAL ROW
         summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
         member_total = grand_base['Member'].sum() if 'Member' in grand_base.columns else 0
@@ -514,9 +520,6 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
           min_eff = cr[eff_col].min()
           max_end = cr[end_col].max()
           
-          if pd.notna(min_eff) and pd.notna(max_end):
-           period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
-
           if pd.notna(min_eff) and pd.notna(max_end):
            period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
         except Exception:pass
