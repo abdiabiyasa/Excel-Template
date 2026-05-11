@@ -283,10 +283,6 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     else:
         merged['Member'] = 0
  
-    #Product dari data SC
-    product_lookup = (df_sc.groupby('Policy No')['Product Type'].apply(lambda x: ', '.join(sorted(set(x.dropna().astype(str))))).reset_index().rename(columns={'Product Type': 'Product'}))
-
-    merged = merged.merge(product_lookup,on='Policy No',how='left',suffixes=('', '_lookup'))
 
     if 'Product' not in merged.columns:
      if 'Product_x' in merged.columns:
@@ -334,10 +330,10 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     policy_summary['Policy Est CR'] = (policy_summary['Est Claim Total']/ policy_summary['Net Premi']* 100)
  
     merged = merged.merge(policy_summary[['Policy No','Company','Policy Claim Total','Policy CR','Policy Est CR']],on=['Policy No', 'Company'],how='left')
+
+    merged['Product'] = merged['Product'].fillna('')
     
     merged = merged.rename(columns={'Excess Coy': 'Excess Company','Excess Emp': 'Excess Employee','CR': 'Claim Ratio','Est CR': 'Est Claim Ratio Full Year'})
- 
-    merged = merged.drop_duplicates(subset=['Policy No','Company','Product'])
  
     cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
     for c in cr_columns_header:
