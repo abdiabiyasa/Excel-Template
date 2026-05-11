@@ -271,6 +271,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         how='left',
         suffixes=('','_sc')
     )
+
+    policy_totals = (sc_grouped.groupby(['Policy No'], as_index=False).agg({'Claim': 'sum','Sum of Billed': 'sum','Sum of Unpaid': 'sum','Sum of Excess Total': 'sum','Sum of Excess Coy': 'sum','Sum of Excess Emp': 'sum'}))
     # Tambahin kolom untuk kebutuhan report
     #Member dari data Claim Ratio
     member_col_candidates = ['Member', 'Members', 'Total Member', 'Total Members']
@@ -323,7 +325,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
-    policy_summary = merged.groupby(['Policy No', 'Company'],as_index=False).agg({'Claim': 'sum','Net Premi': 'first','Est Claim Total': 'first'})
+    merged = merged.merge(policy_totals,on='Policy No',how='left',suffixes=('', '_policy'))
     policy_summary['Policy Claim Total'] = policy_summary['Claim']
  
     policy_summary['Policy CR'] = (policy_summary['Policy Claim Total']/ policy_summary['Net Premi']* 100)
@@ -351,7 +353,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
      'Excess Company': merged['Excess Company'].sum(),
      'Excess Employee': merged['Excess Employee'].sum(),
      # pakai policy total supaya tidak duplicate antar product
-     'Claim': grand_base['Policy Claim Total'].sum()
+     'Claim': grand_base['Claim_policy'].sum()
     }
 
  
@@ -432,16 +434,16 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
             val = rowdata.get(col_name, 0)
         
             if col_name == 'Claim':
-             val = group['Claim'].sum()
+             val = rowdata.get('Claim_policy', 0)
              
             if col_name == 'Claim Ratio':
-             total_claim = group['Claim'].sum()
-             net_premi = group['Net Premi'].iloc[0]
+             total_claim = rowdata.get('Claim_policy', 0)
+             net_premi = rowdata.get('Net Premi', 0)
              val = (total_claim / net_premi * 100) if net_premi else 0
              
             if col_name == 'Est Claim Ratio Full Year':
-             est_claim_total = group['Est Claim Total'].iloc[0]
-             net_premi = group['Net Premi'].iloc[0]
+             est_claim_total = rowdata.get('Est Claim Total', 0)
+             net_premi = rowdata.get('Net Premi', 0)
              val = (est_claim_total / net_premi * 100) if net_premi else 0
         
             merge_cols = [
