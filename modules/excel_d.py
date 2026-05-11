@@ -478,14 +478,11 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              else:
         
-              summary_sheet.merge_range(
-               first_row,
-               ci,
-               last_row,
-               ci,
-               val,
-               plain_border
-              )
+              if col_name in ['Policy No', 'Company']:
+               merge_center_fmt = workbook.add_format({'border':1,'font_name':'Aptos','align':'center','valign':'vcenter'})
+               summary_sheet.merge_range(first_row,ci,last_row,ci,val,merge_center_fmt)
+              else:
+               summary_sheet.merge_range(first_row,ci,last_row,ci,val,plain_border)
         
             else:
         
@@ -523,12 +520,11 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              else:
         
-              summary_sheet.write(
-               excel_row,
-               ci,
-               val,
-               plain_border
-              )
+              if col_name in ['Policy No', 'Company', 'Product']:
+               center_text_fmt = workbook.add_format({'border':1,'font_name':'Aptos','align':'center','valign':'vcenter'})
+               summary_sheet.write(excel_row,ci,val,center_text_fmt)
+              else:
+               summary_sheet.write(excel_row,ci,val,plain_border)
         
           start_row += len(group)
           r = start_row
