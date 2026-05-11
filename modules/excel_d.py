@@ -1,52 +1,64 @@
+
 # excel_d.py
 import pandas as pd
 import numpy as np
 import streamlit as st
 from io import BytesIO
 from datetime import datetime
- 
+
+
 # data cleaning function
 def filter_data(df):
     return df[df['ClaimStatus'] == 'R']
- 
+
+
 def keep_last_duplicate(df):
     duplicate_claims = df[df.duplicated(subset='ClaimNo', keep=False)]
+
     if not duplicate_claims.empty:
         st.write("Duplicated ClaimNo values:")
         st.write(duplicate_claims[['ClaimNo']].drop_duplicates())
+
     return df.drop_duplicates(subset='ClaimNo', keep='last')
- 
+
+
 def filter_benefit_data(df_benefit, df_sc):
     df_benefit = df_benefit.copy()
     df_benefit.columns = df_benefit.columns.str.strip()
- 
+
     # Filter status claim R
     if 'Status_Claim' in df_benefit.columns:
         df_benefit = df_benefit[df_benefit['Status_Claim'] == 'R']
+
     elif 'Status Claim' in df_benefit.columns:
         df_benefit = df_benefit[df_benefit['Status Claim'] == 'R']
+
     else:
         st.warning("Column 'Status Claim' not found. Data not filtered.")
- 
+
     # Filter claim no supaya hanya yang ada di SC
     if "ClaimNo" in df_benefit.columns:
         df_benefit = df_benefit[df_benefit["ClaimNo"].isin(df_sc["Claim No"])]
+
     elif "Claim No" in df_benefit.columns:
         df_benefit = df_benefit[df_benefit["Claim No"].isin(df_sc["Claim No"])]
- 
+
     return df_benefit
- 
+
+
 def template_sc(df):
     new_df = filter_data(df)
     new_df = keep_last_duplicate(new_df)
- 
+
     # Convert date columns
     date_columns = ["TreatmentStart", "TreatmentFinish", "Date"]
+
     for col in date_columns:
         new_df[col] = pd.to_datetime(new_df[col], errors='coerce')
+
         if new_df[col].isnull().any():
             st.warning(f"Invalid date values in '{col}', coerced to NaT.")
- 
+
     df_transformed = pd.DataFrame({
         "No": range(1, len(new_df) + 1),
         "Policy No": new_df["PolicyNo"],
@@ -82,13 +94,23 @@ def template_sc(df):
         "Sum of Excess Total": new_df["ExcessTotal"],
         "Sum of Unpaid": new_df["Unpaid"],
     })
+
     # Buat range harga
     bins = [0, 5000000, 10000000, 25000000, 50000000, 100000000, float('inf')]
     labels = ['<5 Mio', '5 - 10 Mio', '10 - 25 Mio', '25 - 50 Mio', '50 - 100 Mio', '>100 Mio']
+
     df_transformed['Range Billed'] = pd.cut(
-        df_transformed['Sum of Billed'], bins=bins, labels=labels, right=False, include_lowest=True)
+        df_transformed['Sum of Billed'],
+        bins=bins,
+        labels=labels,
+        right=False,
+        include_lowest=True
+    )
+
     return df_transformed
-# prepro Benefit sheet    
+
+
+# prepro Benefit sheet
 def template_benefit(df):
     df.columns = df.columns.str.strip()
 
@@ -140,628 +162,1268 @@ def template_benefit(df):
         df["Treatment Room Class"] = df["Treatment Room Class"].fillna('')
 
     return df.drop(columns=["Status_Claim", "BAmount"], errors='ignore')
- 
- 
+
+
 def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     import pandas as pd
     from io import BytesIO
- 
+
     # Helper: normalize dataframe column names (strip)
     def _norm_cols(df):
-     df = pd.DataFrame(df).copy()
-     df.columns = [c.strip() for c in df.columns]
-     return df
- 
+        df = pd.DataFrame(df).copy()
+        df.columns = [c.strip() for c in df.columns]
+        return df
+
     df_sc = _norm_cols(df_sc)
     df_benefit = _norm_cols(df_benefit)
     cr = _norm_cols(claim_ratio_df)
- 
+
     # Map CR columns
     def _map_cr_columns(cr_df):
         col_map = {}
-        policy = next((c for c in cr_df.columns if c.lower() in ("policy no","policyno","policy")), None)
+
+        policy = next((c for c in cr_df.columns if c.lower() in ("policy no", "policyno", "policy")), None)
+
         if policy:
             col_map['Policy No'] = policy
-        comp = next((c for c in cr_df.columns if c.lower() in ("company","client name","company name","insurer")), None)
+
+        comp = next((c for c in cr_df.columns if c.lower() in ("company", "client name", "company name", "insurer")), None)
+
         if comp:
             col_map['Company'] = comp
-        net = next((c for c in cr_df.columns if c.lower() in ("net premi","net premium","netpremi")), None)
+
+        net = next((c for c in cr_df.columns if c.lower() in ("net premi", "net premium", "netpremi")), None)
+
         if net:
             col_map['Net Premi'] = net
-        est = next((c for c in cr_df.columns if c.lower() in ("est claim total","estclaimtotal","est claim","est_claim_total")), None)
+
+        est = next((c for c in cr_df.columns if c.lower() in ("est claim total", "estclaimtotal", "est claim", "est_claim_total")), None)
+
         if est:
             col_map['Est Claim Total'] = est
+
         return col_map
- 
+
     cr_map = _map_cr_columns(cr)
+
     # Ensure canonical columns exist in CR
     if 'Company' in cr_map:
         cr = cr.rename(columns={cr_map['Company']: 'Company'})
+
     else:
         cr['Company'] = ''
+
     if 'Policy No' in cr_map:
         cr = cr.rename(columns={cr_map['Policy No']: 'Policy No'})
+
     else:
         cr['Policy No'] = ''
+
     if 'Net Premi' in cr_map:
         cr = cr.rename(columns={cr_map['Net Premi']: 'Net Premi'})
+
     else:
         cr['Net Premi'] = 0
+
     if 'Est Claim Total' in cr_map:
         cr = cr.rename(columns={cr_map['Est Claim Total']: 'Est Claim Total'})
+
     else:
         cr['Est Claim Total'] = 0
- 
+
+	
     # Clean numeric in CR defensively
     cr['Net Premi'] = pd.to_numeric(
-        cr['Net Premi'].astype(str).str.replace('%','',regex=False).str.replace(',','',regex=False),
+        cr['Net Premi'].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False),
         errors='coerce'
     ).fillna(0)
+
     cr['Est Claim Total'] = pd.to_numeric(
-        cr['Est Claim Total'].astype(str).str.replace('%','',regex=False).str.replace(',','',regex=False),
+        cr['Est Claim Total'].astype(str).str.replace('%', '', regex=False).str.replace(',', '', regex=False),
         errors='coerce'
     ).fillna(0)
- 
+
     # Normalize SC columns and map expected names
     def _map_sc_columns(sc_df):
-     mapping_candidates = {
-      'Client Name': ['Client Name','ClientName','Client','Company'],
-      'Policy No': ['Policy No','PolicyNo','Policy'],
-      'Sum of Billed': ['Sum of Billed','Billed','Total Billed'],
-      'Sum of Accepted': ['Sum of Accepted','Accepted','Claim'],
-      'Sum of Unpaid': ['Sum of Unpaid','Unpaid'],
-      'Sum of Excess Total': ['Sum of Excess Total','Excess Total','ExcessTotal'],
-      'Sum of Excess Coy': ['Sum of Excess Coy','Excess Coy','ExcessCoy'],
-      'Sum of Excess Emp': ['Sum of Excess Emp','Excess Emp','ExcessEmp']
-     }
-     col_map = {}
-     for canon, candidates in mapping_candidates.items():
-      found = next((c for c in sc_df.columns if c in candidates or c.strip().lower() in [x.lower() for x in candidates]), None)
-      col_map[canon] = found if found else None
-      return col_map
- 
+        mapping_candidates = {
+            'Client Name': ['Client Name', 'ClientName', 'Client', 'Company'],
+            'Policy No': ['Policy No', 'PolicyNo', 'Policy'],
+            'Sum of Billed': ['Sum of Billed', 'Billed', 'Total Billed'],
+            'Sum of Accepted': ['Sum of Accepted', 'Accepted', 'Claim'],
+            'Sum of Unpaid': ['Sum of Unpaid', 'Unpaid'],
+            'Sum of Excess Total': ['Sum of Excess Total', 'Excess Total', 'ExcessTotal'],
+            'Sum of Excess Coy': ['Sum of Excess Coy', 'Excess Coy', 'ExcessCoy'],
+            'Sum of Excess Emp': ['Sum of Excess Emp', 'Excess Emp', 'ExcessEmp']
+        }
+
+        col_map = {}
+
+        for canon, candidates in mapping_candidates.items():
+            found = next(
+                (
+                    c for c in sc_df.columns
+                    if c in candidates or c.strip().lower() in [x.lower() for x in candidates]
+                ),
+                None
+            )
+
+            col_map[canon] = found if found else None
+
+        return col_map
+
     sc_map = _map_sc_columns(df_sc)
- 
+
     # Ensure canonical columns exist in df_sc (create if missing)
     for canon, orig in sc_map.items():
-     if orig is None:
-      if canon in ('Client Name','Policy No'):
-       df_sc[canon] = ''
-      else:
-       df_sc[canon] = 0
-      else:
-       df_sc = df_sc.rename(columns={orig: canon})
- 
+
+        if orig is None:
+
+            if canon in ('Client Name', 'Policy No'):
+                df_sc[canon] = ''
+
+            else:
+                df_sc[canon] = 0
+
+        else:
+            df_sc = df_sc.rename(columns={orig: canon})
+
     # Defensive conversions for df_sc
     df_sc['Client Name'] = df_sc['Client Name'].astype(str).fillna('')
     df_sc['Policy No'] = df_sc['Policy No'].astype(str).fillna('')
-    for c in ['Sum of Billed','Sum of Accepted','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp']:
+
+    for c in [
+        'Sum of Billed',
+        'Sum of Accepted',
+        'Sum of Unpaid',
+        'Sum of Excess Total',
+        'Sum of Excess Coy',
+        'Sum of Excess Emp'
+    ]:
+
         if c in df_sc.columns:
-            df_sc[c] = pd.to_numeric(df_sc[c].astype(str).str.replace(',','',regex=False), errors='coerce').fillna(0)
+            df_sc[c] = pd.to_numeric(
+                df_sc[c].astype(str).str.replace(',', '', regex=False),
+                errors='coerce'
+            ).fillna(0)
+
         else:
             df_sc[c] = 0
- 
+
     # -------------------------
     # AGGREGATE SC
     # -------------------------
-    member_count = df_sc.groupby(['Client Name','Policy No','Product Type'])['Member No'].nunique().reset_index().rename(columns={'Member No': 'Member', 'Product Type': 'Product'})
-    sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type'], dropna=False).agg({
-     'Sum of Billed':'sum',
-     'Sum of Accepted':'sum',
-     'Sum of Unpaid':'sum',
-     'Sum of Excess Total':'sum',
-     'Sum of Excess Coy':'sum',
-     'Sum of Excess Emp':'sum'
-    }).reset_index().rename(columns={'Sum of Accepted':'Claim', 'Product Type':'Product'})
- 
-    sc_grouped = sc_grouped.merge(member_count,on=['Client Name','Policy No','Product'],how='left')
+    member_count = df_sc.groupby(
+        ['Client Name', 'Policy No', 'Product Type']
+    )['Member No'].nunique().reset_index().rename(
+        columns={
+            'Member No': 'Member',
+            'Product Type': 'Product'
+        }
+    )
+
+    sc_grouped = df_sc.groupby(
+        ['Client Name', 'Policy No', 'Product Type'],
+        dropna=False
+    ).agg({
+        'Sum of Billed': 'sum',
+        'Sum of Accepted': 'sum',
+        'Sum of Unpaid': 'sum',
+        'Sum of Excess Total': 'sum',
+        'Sum of Excess Coy': 'sum',
+        'Sum of Excess Emp': 'sum'
+    }).reset_index().rename(
+        columns={
+            'Sum of Accepted': 'Claim',
+            'Product Type': 'Product'
+        }
+    )
+
+    sc_grouped = sc_grouped.merge(
+        member_count,
+        on=['Client Name', 'Policy No', 'Product'],
+        how='left'
+    )
+
     # -------------------------
     # MERGE with CR
     # -------------------------
     # rapihin key
     cr['Company'] = cr['Company'].astype(str).str.strip().str.upper()
     cr['Policy No'] = cr['Policy No'].astype(str).str.strip()
- 
+
     sc_grouped['Client Name'] = sc_grouped['Client Name'].astype(str).str.strip().str.upper()
     sc_grouped['Policy No'] = sc_grouped['Policy No'].astype(str).str.strip()
+
     merged = cr.merge(
-     sc_grouped,
-     left_on=['Company','Policy No'],
-     right_on=['Client Name','Policy No'],
-     how='left',
-     suffixes=('','_sc')
+        sc_grouped,
+        left_on=['Company', 'Policy No'],
+        right_on=['Client Name', 'Policy No'],
+        how='left',
+        suffixes=('', '_sc')
     )
 
-    policy_totals = (sc_grouped.groupby(['Policy No'], as_index=False).agg({'Claim': 'sum','Sum of Billed': 'sum','Sum of Unpaid': 'sum','Sum of Excess Total': 'sum','Sum of Excess Coy': 'sum','Sum of Excess Emp': 'sum'}))
+    policy_totals = (
+        sc_grouped.groupby(['Policy No'], as_index=False).agg({
+            'Claim': 'sum',
+            'Sum of Billed': 'sum',
+            'Sum of Unpaid': 'sum',
+            'Sum of Excess Total': 'sum',
+            'Sum of Excess Coy': 'sum',
+            'Sum of Excess Emp': 'sum'
+        })
+    )
+
     # Tambahin kolom untuk kebutuhan report
-    #Member dari data Claim Ratio
+    # Member dari data Claim Ratio
     member_col_candidates = ['Member', 'Members', 'Total Member', 'Total Members']
+
     member_col = next(
-     (c for c in cr.columns if c.strip() in member_col_candidates), None)
+        (c for c in cr.columns if c.strip() in member_col_candidates),
+        None
+    )
 
     if member_col:
-     member_lookup = (cr[['Policy No', member_col]].drop_duplicates(subset=['Policy No']).rename(columns={member_col: 'Member'}))
-     merged = merged.merge(member_lookup,on='Policy No',how='left')
+
+        member_lookup = (
+            cr[['Policy No', member_col]]
+            .drop_duplicates(subset=['Policy No'])
+            .rename(columns={member_col: 'Member'})
+        )
+
+        merged = merged.merge(
+            member_lookup,
+            on='Policy No',
+            how='left'
+        )
+
     else:
-     merged['Member'] = 0
- 
+        merged['Member'] = 0
 
     if 'Product' not in merged.columns:
-     if 'Product_x' in merged.columns:
-      merged['Product'] = merged['Product_x']
-     elif 'Product_y' in merged.columns:
-      merged['Product'] = merged['Product_y']
-     elif 'Product_old' in merged.columns:
-      merged['Product'] = merged['Product_old']
-     else:
-      merged['Product'] = ''
+
+        if 'Product_x' in merged.columns:
+            merged['Product'] = merged['Product_x']
+
+        elif 'Product_y' in merged.columns:
+            merged['Product'] = merged['Product_y']
+
+        elif 'Product_old' in merged.columns:
+            merged['Product'] = merged['Product_old']
+
+        else:
+            merged['Product'] = ''
 
     merged['Product'] = merged['Product'].fillna('')
 
     # pastikan Member ada
     if 'Member' not in merged.columns:
-     if 'Member_x' in merged.columns:
-      merged['Member'] = merged['Member_x']
-     elif 'Member_y' in merged.columns:
-      merged['Member'] = merged['Member_y']
-     else:
-      merged['Member'] = 0
+
+        if 'Member_x' in merged.columns:
+            merged['Member'] = merged['Member_x']
+
+        elif 'Member_y' in merged.columns:
+            merged['Member'] = merged['Member_y']
+
+        else:
+            merged['Member'] = 0
 
     merged['Member'] = merged['Member'].fillna(0)
     merged['Member'] = pd.to_numeric(merged['Member'], errors='coerce').fillna(0)
- 
+
     # Ensure merged numeric
-    for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
-     merged[col] = pd.to_numeric(merged.get(col, 0), errors='coerce').fillna(0)
- 
+    for col in [
+        'Sum of Billed',
+        'Sum of Unpaid',
+        'Sum of Excess Total',
+        'Sum of Excess Coy',
+        'Sum of Excess Emp',
+        'Claim'
+    ]:
+        merged[col] = pd.to_numeric(
+            merged.get(col, 0),
+            errors='coerce'
+        ).fillna(0)
+
     merged['Billed'] = merged['Sum of Billed']
     merged['Unpaid'] = merged['Sum of Unpaid']
     merged['Excess Total'] = merged['Sum of Excess Total']
     merged['Excess Coy'] = merged['Sum of Excess Coy']
     merged['Excess Emp'] = merged['Sum of Excess Emp']
- 
-    merged['Net Premi'] = pd.to_numeric(merged.get('Net Premi', 0), errors='coerce').fillna(0)
-    merged['Est Claim Total'] = pd.to_numeric(merged.get('Est Claim Total', 0), errors='coerce').fillna(0)
- 
-    merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
-    merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
-    merged = merged.merge(policy_totals,on='Policy No',how='left',suffixes=('', '_policy'))
+    merged['Net Premi'] = pd.to_numeric(
+        merged.get('Net Premi', 0),
+        errors='coerce'
+    ).fillna(0)
+
+    merged['Est Claim Total'] = pd.to_numeric(
+        merged.get('Est Claim Total', 0),
+        errors='coerce'
+    ).fillna(0)
+
+    merged['CR'] = merged.apply(
+        lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0,
+        axis=1
+    )
+
+    merged['Est CR'] = merged.apply(
+        lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0,
+        axis=1
+    )
+
+    merged = merged.merge(
+        policy_totals,
+        on='Policy No',
+        how='left',
+        suffixes=('', '_policy')
+    )
 
     merged['Product'] = merged['Product'].fillna('')
-    
-    merged = merged.rename(columns={'Excess Coy': 'Excess Company','Excess Emp': 'Excess Employee','CR': 'Claim Ratio','Est CR': 'Est Claim Ratio Full Year'})
- 
-    cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
+
+    merged = merged.rename(columns={
+        'Excess Coy': 'Excess Company',
+        'Excess Emp': 'Excess Employee',
+        'CR': 'Claim Ratio',
+        'Est CR': 'Est Claim Ratio Full Year'
+    })
+
+    cr_columns_header = [
+        "Policy No",
+        "Company",
+        "Product",
+        "Member",
+        "Net Premi",
+        "Billed",
+        "Unpaid",
+        "Excess Total",
+        "Excess Company",
+        "Excess Employee",
+        "Claim",
+        "Claim Ratio",
+        "Est Claim Ratio Full Year"
+    ]
+
     for c in cr_columns_header:
-     if c not in merged.columns:
-      merged[c] = 0
- 
+        if c not in merged.columns:
+            merged[c] = 0
+
+
     # totals
     grand_base = merged.drop_duplicates(subset=['Policy No', 'Company'])
+
     grand = {
-     'Net Premi': grand_base['Net Premi'].sum(),
-     'Est Claim Total': grand_base['Est Claim Total'].sum(),
-     'Billed': merged['Billed'].sum(),
-     'Unpaid': merged['Unpaid'].sum(),
-     'Excess Total': merged['Excess Total'].sum(),
-     'Excess Company': merged['Excess Company'].sum(),
-     'Excess Employee': merged['Excess Employee'].sum(),
-     # pakai policy total supaya tidak duplicate antar product
-     'Claim': grand_base['Claim_policy'].sum()
+        'Net Premi': grand_base['Net Premi'].sum(),
+        'Est Claim Total': grand_base['Est Claim Total'].sum(),
+        'Billed': merged['Billed'].sum(),
+        'Unpaid': merged['Unpaid'].sum(),
+        'Excess Total': merged['Excess Total'].sum(),
+        'Excess Company': merged['Excess Company'].sum(),
+        'Excess Employee': merged['Excess Employee'].sum(),
+        # pakai policy total supaya tidak duplicate antar product
+        'Claim': grand_base['Claim_policy'].sum()
     }
 
- 
-    grand_cr = (grand['Claim']/grand['Net Premi']*100) if grand['Net Premi'] else 0
-    grand_est_cr = (grand['Est Claim Total']/grand['Net Premi']*100) if grand['Net Premi'] else 0
- 
+    grand_cr = (grand['Claim'] / grand['Net Premi'] * 100) if grand['Net Premi'] else 0
+
+    grand_est_cr = (
+        grand['Est Claim Total'] / grand['Net Premi'] * 100
+    ) if grand['Net Premi'] else 0
+
     # Excel
     output = BytesIO()
+
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+
         workbook = writer.book
- 
+
         # formats
-        header_fmt = workbook.add_format({'font_name':'Aptos','font_size':11,'bold':True,'align':'center','border':1})
-        border_fmt = workbook.add_format({'font_name':'Aptos','font_size':11,'border':1})
-        borderbold_fmt = workbook.add_format({'font_name':'Aptos','font_size':11,'bold':True,'border':1})
-        num_fmt = workbook.add_format({'font_name':'Aptos','font_size':11,'border':1,'num_format':'#,##0;[Red]-#,##0;""','align':'right','valign':'vcenter'})
-        date_fmt = workbook.add_format({'font_name':'Aptos','font_size':11,'border':1,'num_format':'dd/mm/yyyy'})
-        plain_fmt = workbook.add_format({'font_name':'Aptos','font_size':11})
-        plain_border = workbook.add_format({'border':1,'font_name':'Aptos','num_format':'#,##0;[Red]-#,##0;"-";@','align':'right','valign':'vcenter'})
-        bold_plain_border = workbook.add_format({'bold':True,'border':1,'font_name':'Aptos','num_format':'#,##0;[Red]-#,##0;"-";@'})
-        header_border = workbook.add_format({'bold':True,'border':1,'align':'center','font_name':'Aptos','num_format':'#,##0;[Red]-#,##0;"-";@'})
-        highlight_yellow = workbook.add_format({'bg_color':'#FFFF00','border':1,'num_format':'0.00"%"','font_name':'Aptos','align':'right','valign':'vcenter'})
-        highlight_yellow_bold = workbook.add_format({'bg_color':'#FFFF00','border':1,'bold':True,'num_format':'0.00"%"','font_name':'Aptos','align':'right','valign':'vcenter'})
-        percent_format = workbook.add_format({'border': 1, 'num_format': '0.00"%"', 'font_name': 'Aptos', 'align':'right','valign':'vcenter'})
-        boolean_format = workbook.add_format({'border': 1, 'font_name': 'Aptos', 'num_format': '"TRUE";;"FALSE"' })
- 
+        header_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'border': 1
+        })
+
+        border_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11,
+            'border': 1
+        })
+
+        borderbold_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11,
+            'bold': True,
+            'border': 1
+        })
+
+        num_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11,
+            'border': 1,
+            'num_format': '#,##0;[Red]-#,##0;""',
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+
+        date_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11,
+            'border': 1,
+            'num_format': 'dd/mm/yyyy'
+        })
+
+        plain_fmt = workbook.add_format({
+            'font_name': 'Aptos',
+            'font_size': 11
+        })
+
+        plain_border = workbook.add_format({
+            'border': 1,
+            'font_name': 'Aptos',
+            'num_format': '#,##0;[Red]-#,##0;"-";@',
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+
+        bold_plain_border = workbook.add_format({
+            'bold': True,
+            'border': 1,
+            'font_name': 'Aptos',
+            'num_format': '#,##0;[Red]-#,##0;"-";@'
+        })
+
+        header_border = workbook.add_format({
+            'bold': True,
+            'border': 1,
+            'align': 'center',
+            'font_name': 'Aptos',
+            'num_format': '#,##0;[Red]-#,##0;"-";@'
+        })
+
+        highlight_yellow = workbook.add_format({
+            'bg_color': '#FFFF00',
+            'border': 1,
+            'num_format': '0.00"%"',
+            'font_name': 'Aptos',
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+
+        highlight_yellow_bold = workbook.add_format({
+            'bg_color': '#FFFF00',
+            'border': 1,
+            'bold': True,
+            'num_format': '0.00"%"',
+            'font_name': 'Aptos',
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+
+        percent_format = workbook.add_format({
+            'border': 1,
+            'num_format': '0.00"%"',
+            'font_name': 'Aptos',
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+
+        boolean_format = workbook.add_format({
+            'border': 1,
+            'font_name': 'Aptos',
+            'num_format': '"TRUE";;"FALSE"'
+        })
+
         # Summary
         summary_sheet = workbook.add_worksheet('Summary')
+
         writer.sheets['Summary'] = summary_sheet
+
         summary_sheet.hide_gridlines(2)
- 
-        summary_sheet.write(0,0,'List Claim', plain_fmt)
-        summary_sheet.write_formula('A2','=SC!A2')
-        summary_sheet.write_formula('A3','=SC!A3')
-        summary_sheet.write_formula('A4','=SC!A4')
 
- 
+        summary_sheet.write(0, 0, 'List Claim', plain_fmt)
+        summary_sheet.write_formula('A2', '=SC!A2')
+        summary_sheet.write_formula('A3', '=SC!A3')
+        summary_sheet.write_formula('A4', '=SC!A4')
+
         metrics = [
-         ("Total Claims", len(df_sc), num_fmt),
-         ("Employee Claims", len(df_sc[df_sc.get('Membership','') == '1. EMP']), num_fmt),
-         ("Spouse Claims", len(df_sc[df_sc.get('Membership','') == '2. SPO']), num_fmt),
-         ("Children Claims", len(df_sc[df_sc.get('Membership','') == '3. CHI']), num_fmt),
-         ("Total Billed", df_sc['Sum of Billed'].sum() if 'Sum of Billed' in df_sc.columns else 0, num_fmt),
-         ("Total Accepted", df_sc['Sum of Accepted'].sum() if 'Sum of Accepted' in df_sc.columns else 0, num_fmt),
-         ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
-         ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
-         ("Claim Ratio (%)", grand_cr, percent_format),
-         ("Est Claim Ratio (%)", grand_est_cr, percent_format)
+            ("Total Claims", len(df_sc), num_fmt),
+            ("Employee Claims", len(df_sc[df_sc.get('Membership', '') == '1. EMP']), num_fmt),
+            ("Spouse Claims", len(df_sc[df_sc.get('Membership', '') == '2. SPO']), num_fmt),
+            ("Children Claims", len(df_sc[df_sc.get('Membership', '') == '3. CHI']), num_fmt),
+            ("Total Billed", df_sc['Sum of Billed'].sum() if 'Sum of Billed' in df_sc.columns else 0, num_fmt),
+            ("Total Accepted", df_sc['Sum of Accepted'].sum() if 'Sum of Accepted' in df_sc.columns else 0, num_fmt),
+            ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
+            ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
+            ("Claim Ratio (%)", grand_cr, percent_format),
+            ("Est Claim Ratio (%)", grand_est_cr, percent_format)
         ]
- 
-        for i,(name,val,fmt) in enumerate(metrics,start=4):
-         summary_sheet.write(i,0,name,borderbold_fmt)
-         summary_sheet.write(i,1,val,fmt)
- 
-        cr_start = 4 + len(metrics) + 3
-        for ci,col_name in enumerate(cr_columns_header):
-         summary_sheet.write(cr_start,ci,col_name,header_border)
-        r = cr_start + 1
- 
-        if not merged.empty:
-         # group by policy + company
-         grouped_rows = merged.groupby(['Policy No', 'Company'], sort=False)
-         start_row = r
-        
-         for (policy_no, company), group in grouped_rows:
-        
-          group = group.reset_index(drop=True)
-        
-          first_row = start_row
-          last_row = start_row + len(group) - 1
-        
-          for idx, rowdata in group.iterrows():
-        
-           excel_row = start_row + idx
-        
-           for ci, col_name in enumerate(cr_columns_header):
-        
-            val = rowdata.get(col_name, 0)
-        
-            if col_name == 'Claim':
-             val = rowdata.get('Claim_policy', 0)
-             
-            if col_name == 'Claim Ratio':
-             total_claim = rowdata.get('Claim_policy', 0)
-             net_premi = rowdata.get('Net Premi', 0)
-             val = (total_claim / net_premi * 100) if net_premi else 0
-             
-            if col_name == 'Est Claim Ratio Full Year':
-             est_claim_total = rowdata.get('Est Claim Total', 0)
-             net_premi = rowdata.get('Net Premi', 0)
-             val = (est_claim_total / net_premi * 100) if net_premi else 0
-        
-            merge_cols = [
-             'Policy No',
-             'Company',
-             'Member',
-             'Net Premi',
-             'Claim',
-             'Claim Ratio',
-             'Est Claim Ratio Full Year'
-            ]
-        
-            # skip selain row pertama untuk merge cols
-            if col_name in merge_cols and idx > 0:
-             continue
-        
-            # MERGE CELL
-            if col_name in merge_cols and len(group) > 1:
-        
-             if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
-        
-              summary_sheet.merge_range(
-               first_row,
-               ci,
-               last_row,
-               ci,
-               float(val),
-               highlight_yellow
-              )
-        
-             elif col_name in ('Net Premi', 'Member'):
-        
-              summary_sheet.merge_range(
-               first_row,
-               ci,
-               last_row,
-               ci,
-               float(val) if pd.notna(val) else 0,
-               num_fmt
-              )
-        
-             else:
-        
-              if col_name in ['Policy No', 'Company']:
-               merge_center_fmt = workbook.add_format({'border':1,'font_name':'Aptos','align':'center','valign':'vcenter'})
-               summary_sheet.merge_range(first_row,ci,last_row,ci,val,merge_center_fmt)
-              else:
-               summary_sheet.merge_range(first_row,ci,last_row,ci,val,plain_border)
-        
-            else:
-        
-             if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
-        
-              summary_sheet.write_number(
-               excel_row,
-               ci,
-               float(val),
-               highlight_yellow
-              )
-        
-             elif col_name in (
-              'Member',
-              'Net Premi',
-              'Est Claim Total',
-              'Billed',
-              'Unpaid',
-              'Excess Total',
-              'Excess Company',
-              'Excess Employee',
-              'Claim'
-             ):
-        
-              try:
-               numeric_val = float(val) if pd.notna(val) else 0
-              except:
-               numeric_val = 0
-        
-              summary_sheet.write_number(
-               excel_row,
-               ci,
-               numeric_val,
-               num_fmt
-              )
-        
-             else:
-        
-              if col_name in ['Policy No', 'Company', 'Product']:
-               center_text_fmt = workbook.add_format({'border':1,'font_name':'Aptos','align':'center','valign':'vcenter'})
-               summary_sheet.write(excel_row,ci,val,center_text_fmt)
-              else:
-               summary_sheet.write(excel_row,ci,val,plain_border)
-        
-          start_row += len(group)
-          r = start_row
-        
-         # GRAND TOTAL ROW
-         summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
-        
-         member_total = (merged[['Policy No', 'Member']].drop_duplicates(subset=['Policy No'])['Member'].astype(float).sum()) if 'Member' in merged.columns else 0
-        
-         grand_values = {
-          3: member_total,
-          4: grand['Net Premi'],
-          5: grand['Billed'],
-          6: grand['Unpaid'],
-          7: grand['Excess Total'],
-          8: grand['Excess Company'],
-          9: grand['Excess Employee'],
-          10: grand['Claim']
-         }
-        
-         for col_idx, value in grand_values.items():
-          summary_sheet.write_number(
-           r,
-           col_idx,
-           float(value),
-           bold_plain_border
-          )
-        
-         # Claim Ratio
-         summary_sheet.write_number(
-          r,
-          11,
-          float(grand_cr),
-          highlight_yellow_bold
-         )
-        
-         # Est Claim Ratio
-         summary_sheet.write_number(
-          r,
-          12,
-          float(grand_est_cr),
-          highlight_yellow_bold
-         )
-        
-         r += 1
-        
-        else:
-        
-         summary_sheet.write(
-          r,
-          0,
-          'No Claim Ratio data',
-          plain_border
-         )
-        
-         r += 1
- 
-        # SC sheet — unchanged
-        sc_sheet = workbook.add_worksheet('SC')
-        writer.sheets['SC'] = sc_sheet
-        sc_sheet.hide_gridlines(2)
-        sc_sheet.write(0,0,'List Claim', plain_fmt)
-        sc_sheet.write(1,0, df_sc['Client Name'].iloc[0] if not df_sc.empty else '', plain_fmt)
-        today = datetime.today()
-        if today.month == 1:
-         ytd_month = 12
-         ytd_year = today.year - 1
-        else:
-         ytd_month = today.month - 1
-         ytd_year = today.year
-        month_name = datetime(ytd_year, ytd_month, 1).strftime('%B')
-        ytd_text = f"YTD {month_name} {ytd_year}"
-        sc_sheet.write(2,0,ytd_text, plain_fmt)
-        period_text = 'Periode of Policy: -'
-        try:
-         eff_col = next((c for c in cr.columns if c.strip().lower() in ['effective date','effective_date']),None)
-         end_col = next((c for c in cr.columns if c.strip().lower() in ['end date','end_date']),None)
-         
-         if eff_col and end_col:
-          cr[eff_col] = pd.to_datetime(cr[eff_col], errors='coerce')
-          cr[end_col] = pd.to_datetime(cr[end_col], errors='coerce')
-          
-          min_eff = cr[eff_col].min()
-          max_end = cr[end_col].max()
-          
-          if pd.notna(min_eff) and pd.notna(max_end):
-           period_text = (f"Periode of Policy: "f"{min_eff.strftime('%d %b %Y')} - "f"{max_end.strftime('%d %b %Y')}")
-        except Exception:pass
 
-        sc_sheet.write(3,0,period_text, plain_fmt)
- 
-        for ci,col_name in enumerate(df_sc.columns):
-         sc_sheet.write(6,ci,col_name,header_fmt)
- 
-        koma_cols = ['Sum of Billed','Sum of Accepted','Sum of Excess Coy','Sum of Excess Emp','Sum of Excess Total','Sum of Unpaid']
- 
-        for rr, rowdata in enumerate(df_sc.to_dict("records"), start=7):
-         for ci, (col_name, val) in enumerate(rowdata.items()):
-          # koma cols ( 0 -> cell kosong)
-          if col_name in koma_cols:
-           if pd.isna(val) or val == 0:
-            sc_sheet.write(rr, ci, None, num_fmt)  # blank cell
-           else:
-            sc_sheet.write_number(rr, ci, float(val), num_fmt)
-            # Date columns
-           elif col_name in ('Treatment Start', 'Treatment Finish', 'Settled Date'):
-            if pd.notna(val) and val != '':
-             try:
-              sc_sheet.write_datetime(rr, ci, pd.to_datetime(val), date_fmt)
-              except:
-               sc_sheet.write(rr, ci, None, border_fmt)
-             else:
-              sc_sheet.write(rr, ci, None, border_fmt)
-              # PrePost write as boolean
-            elif col_name == 'PrePost':
-             if val in [1, "1", True]:
-              sc_sheet.write(rr, ci, "True", border_fmt)
-             elif val in [0, "0", False, None]:
-              sc_sheet.write(rr, ci, "False", border_fmt)
-             else:
-              sc_sheet.write(rr, ci, None, border_fmt)
-                # Emp ID write as text
-             elif col_name == 'Emp ID':
-              sc_sheet.write(rr, ci, str(val) if pd.notna(val) else "", border_fmt)
-                # dll klo value 0 -> cell jd kosong
-               else:
+        for i, (name, val, fmt) in enumerate(metrics, start=4):
+            summary_sheet.write(i, 0, name, borderbold_fmt)
+            summary_sheet.write(i, 1, val, fmt)
+
+        cr_start = 4 + len(metrics) + 3
+
+        for ci, col_name in enumerate(cr_columns_header):
+            summary_sheet.write(cr_start, ci, col_name, header_border)
+
+        r = cr_start + 1
+
+        if not merged.empty:
+
+            # group by policy + company
+            grouped_rows = merged.groupby(
+                ['Policy No', 'Company'],
+                sort=False
+            )
+
+            start_row = r
+
+            for (policy_no, company), group in grouped_rows:
+
+                group = group.reset_index(drop=True)
+
+                first_row = start_row
+                last_row = start_row + len(group) - 1
+
+                for idx, rowdata in group.iterrows():
+
+                    excel_row = start_row + idx
+
+                    for ci, col_name in enumerate(cr_columns_header):
+
+                        val = rowdata.get(col_name, 0)
+
+                        if col_name == 'Claim':
+                            val = rowdata.get('Claim_policy', 0)
+
+                        if col_name == 'Claim Ratio':
+                            total_claim = rowdata.get('Claim_policy', 0)
+                            net_premi = rowdata.get('Net Premi', 0)
+
+                            val = (
+                                total_claim / net_premi * 100
+                            ) if net_premi else 0
+
+                        if col_name == 'Est Claim Ratio Full Year':
+                            est_claim_total = rowdata.get('Est Claim Total', 0)
+                            net_premi = rowdata.get('Net Premi', 0)
+
+                            val = (
+                                est_claim_total / net_premi * 100
+                            ) if net_premi else 0
+
+                        merge_cols = [
+                            'Policy No',
+                            'Company',
+                            'Member',
+                            'Net Premi',
+                            'Claim',
+                            'Claim Ratio',
+                            'Est Claim Ratio Full Year'
+                        ]
+
+                        # skip selain row pertama untuk merge cols
+                        if col_name in merge_cols and idx > 0:
+                            continue
+
+                        # MERGE CELL
+                        if col_name in merge_cols and len(group) > 1:
+
+                            if col_name in (
+                                'Claim Ratio',
+                                'Est Claim Ratio Full Year'
+                            ):
+
+                                summary_sheet.merge_range(
+                                    first_row,
+                                    ci,
+                                    last_row,
+                                    ci,
+                                    float(val),
+                                    highlight_yellow
+                                )
+
+                            elif col_name in ('Net Premi', 'Member'):
+
+                                summary_sheet.merge_range(
+                                    first_row,
+                                    ci,
+                                    last_row,
+                                    ci,
+                                    float(val) if pd.notna(val) else 0,
+                                    num_fmt
+                                )
+
+                            else:
+
+                                if col_name in ['Policy No', 'Company']:
+
+                                    merge_center_fmt = workbook.add_format({
+                                        'border': 1,
+                                        'font_name': 'Aptos',
+                                        'align': 'center',
+                                        'valign': 'vcenter'
+                                    })
+
+                                    summary_sheet.merge_range(
+                                        first_row,
+                                        ci,
+                                        last_row,
+                                        ci,
+                                        val,
+                                        merge_center_fmt
+                                    )
+
+                                else:
+
+                                    summary_sheet.merge_range(
+                                        first_row,
+                                        ci,
+                                        last_row,
+                                        ci,
+                                        val,
+                                        plain_border
+                                    )
+
+                        else:
+
+                            if col_name in (
+                                'Claim Ratio',
+                                'Est Claim Ratio Full Year'
+                            ):
+
+                                summary_sheet.write_number(
+                                    excel_row,
+                                    ci,
+                                    float(val),
+                                    highlight_yellow
+                                )
+
+                            elif col_name in (
+                                'Member',
+                                'Net Premi',
+                                'Est Claim Total',
+                                'Billed',
+                                'Unpaid',
+                                'Excess Total',
+                                'Excess Company',
+                                'Excess Employee',
+                                'Claim'
+                            ):
+
+                                try:
+                                    numeric_val = float(val) if pd.notna(val) else 0
+
+                                except:
+                                    numeric_val = 0
+
+                                summary_sheet.write_number(
+                                    excel_row,
+                                    ci,
+                                    numeric_val,
+                                    num_fmt
+                                )
+
+                            else:
+
+                                if col_name in [
+                                    'Policy No',
+                                    'Company',
+                                    'Product'
+                                ]:
+
+                                    center_text_fmt = workbook.add_format({
+                                        'border': 1,
+                                        'font_name': 'Aptos',
+                                        'align': 'center',
+                                        'valign': 'vcenter'
+                                    })
+
+                                    summary_sheet.write(
+                                        excel_row,
+                                        ci,
+                                        val,
+                                        center_text_fmt
+                                    )
+
+                                else:
+
+                                    summary_sheet.write(
+                                        excel_row,
+                                        ci,
+                                        val,
+                                        plain_border
+                                    )
+
+                start_row += len(group)
+                r = start_row
+
+        # GRAND TOTAL ROW
+        summary_sheet.merge_range(
+            r,
+            0,
+            r,
+            2,
+            'Grand Total',
+            borderbold_fmt
+        )
+
+        member_total = (
+            merged[['Policy No', 'Member']]
+            .drop_duplicates(subset=['Policy No'])['Member']
+            .astype(float)
+            .sum()
+        ) if 'Member' in merged.columns else 0
+
+        grand_values = {
+            3: member_total,
+            4: grand['Net Premi'],
+            5: grand['Billed'],
+            6: grand['Unpaid'],
+            7: grand['Excess Total'],
+            8: grand['Excess Company'],
+            9: grand['Excess Employee'],
+            10: grand['Claim']
+        }
+
+        for col_idx, value in grand_values.items():
+
+            summary_sheet.write_number(
+                r,
+                col_idx,
+                float(value),
+                bold_plain_border
+            )
+
+        # Claim Ratio
+        summary_sheet.write_number(
+            r,
+            11,
+            float(grand_cr),
+            highlight_yellow_bold
+        )
+
+        # Est Claim Ratio
+        summary_sheet.write_number(
+            r,
+            12,
+            float(grand_est_cr),
+            highlight_yellow_bold
+        )
+
+        r += 1
+
+    else:
+
+        summary_sheet.write(
+            r,
+            0,
+            'No Claim Ratio data',
+            plain_border
+        )
+
+        r += 1
+
+    # SC sheet
+    sc_sheet = workbook.add_worksheet('SC')
+
+    writer.sheets['SC'] = sc_sheet
+
+    sc_sheet.hide_gridlines(2)
+
+    sc_sheet.write(0, 0, 'List Claim', plain_fmt)
+
+    sc_sheet.write(
+        1,
+        0,
+        df_sc['Client Name'].iloc[0] if not df_sc.empty else '',
+        plain_fmt
+    )
+
+    today = datetime.today()
+
+    if today.month == 1:
+        ytd_month = 12
+        ytd_year = today.year - 1
+
+    else:
+        ytd_month = today.month - 1
+        ytd_year = today.year
+
+    month_name = datetime(
+        ytd_year,
+        ytd_month,
+        1
+    ).strftime('%B')
+
+    ytd_text = f"YTD {month_name} {ytd_year}"
+
+    sc_sheet.write(2, 0, ytd_text, plain_fmt)
+
+    period_text = 'Periode of Policy: -'
+
+    try:
+
+        eff_col = next(
+            (
+                c for c in cr.columns
+                if c.strip().lower() in [
+                    'effective date',
+                    'effective_date'
+                ]
+            ),
+            None
+        )
+
+        end_col = next(
+            (
+                c for c in cr.columns
+                if c.strip().lower() in [
+                    'end date',
+                    'end_date'
+                ]
+            ),
+            None
+        )
+
+        if eff_col and end_col:
+
+            cr[eff_col] = pd.to_datetime(
+                cr[eff_col],
+                errors='coerce'
+            )
+
+            cr[end_col] = pd.to_datetime(
+                cr[end_col],
+                errors='coerce'
+            )
+
+            min_eff = cr[eff_col].min()
+            max_end = cr[end_col].max()
+
+            if pd.notna(min_eff) and pd.notna(max_end):
+
+                period_text = (
+                    f"Periode of Policy: "
+                    f"{min_eff.strftime('%d %b %Y')} - "
+                    f"{max_end.strftime('%d %b %Y')}"
+                )
+
+    except Exception:
+        pass
+
+    sc_sheet.write(3, 0, period_text, plain_fmt)
+
+    for ci, col_name in enumerate(df_sc.columns):
+        sc_sheet.write(6, ci, col_name, header_fmt)
+
+    koma_cols = [
+        'Sum of Billed',
+        'Sum of Accepted',
+        'Sum of Excess Coy',
+        'Sum of Excess Emp',
+        'Sum of Excess Total',
+        'Sum of Unpaid'
+    ]
+
+    for rr, rowdata in enumerate(
+        df_sc.to_dict("records"),
+        start=7
+    ):
+
+        for ci, (col_name, val) in enumerate(rowdata.items()):
+
+            # koma cols (0 -> cell kosong)
+            if col_name in koma_cols:
+
                 if pd.isna(val) or val == 0:
-                 sc_sheet.write(rr, ci, None, border_fmt)
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        num_fmt
+                    )
+
                 else:
-                 sc_sheet.write(rr, ci, val, border_fmt)
- 
- 
-        # Benefit sheet
-        benefit_sheet = workbook.add_worksheet('Benefit')
-        writer.sheets['Benefit'] = benefit_sheet
-        benefit_sheet.hide_gridlines(2)
- 
-        for ci,col_name in enumerate(df_benefit.columns):
-         benefit_sheet.write(0,ci,col_name,header_fmt)
- 
-        koma_cols_benefit = ['Billed','Accepted','Unpaid','Excess Total','Excess Coy','Excess Emp']
- 
-        for rr, rowdata in enumerate(df_benefit.to_dict("records"), start=1):
-         for ci, (col_name, val) in enumerate(rowdata.items()):
-          # koma kols (0 -> cell kosong)
-          if col_name in koma_cols_benefit:
-           if pd.isna(val) or val == 0:
-            benefit_sheet.write(rr, ci, None, num_fmt)  # blank cell
-           else:
-            benefit_sheet.write_number(rr, ci, float(val), num_fmt)
-                elif col_name in ('Treatment Start', 'Treatment Finish', 'Payment Date'):
-                    if pd.notna(val) and val != '':
-                        try:
-                            benefit_sheet.write_datetime(rr, ci, pd.to_datetime(val), date_fmt)
-                        except:
-                            benefit_sheet.write(rr, ci, None, border_fmt)
-                    else:
-                        benefit_sheet.write(rr, ci, None, border_fmt)
-                # Emp ID write as text
-                elif col_name == 'Emp ID':
-                    benefit_sheet.write(rr, ci, str(val) if pd.notna(val) else "", border_fmt)
-                # dll klo value 0 -> cell jd kosong
+
+                    sc_sheet.write_number(
+                        rr,
+                        ci,
+                        float(val),
+                        num_fmt
+                    )
+
+            # Date columns
+            elif col_name in (
+                'Treatment Start',
+                'Treatment Finish',
+                'Settled Date'
+            ):
+
+                if pd.notna(val) and val != '':
+
+                    try:
+
+                        sc_sheet.write_datetime(
+                            rr,
+                            ci,
+                            pd.to_datetime(val),
+                            date_fmt
+                        )
+
+                    except:
+
+                        sc_sheet.write(
+                            rr,
+                            ci,
+                            None,
+                            border_fmt
+                        )
+
                 else:
-                    if pd.isna(val) or val == 0:
-                        benefit_sheet.write(rr, ci, None, border_fmt)
-                    else:
-                        benefit_sheet.write(rr, ci, val, border_fmt)
- 
- 
-        # Autofit SC & Benefit only
-        def autofit(sheet, df):
-            for idx,col in enumerate(df.columns):
-                series = df[col].astype(str)
-                try:
-                    max_len = max(series.map(len).max(), len(col))
-                except Exception:
-                    max_len = len(col)
-                sheet.set_column(idx, idx, max_len + 5)
- 
-        try:
-            autofit(sc_sheet, df_sc)
-            autofit(benefit_sheet, df_benefit)
-            autofit(summary_sheet, pd.DataFrame(merged[cr_columns_header]))
-        except Exception:
-            pass
- 
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        border_fmt
+                    )
+
+            # PrePost write as boolean
+            elif col_name == 'PrePost':
+
+                if val in [1, "1", True]:
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        "True",
+                        border_fmt
+                    )
+
+                elif val in [0, "0", False, None]:
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        "False",
+                        border_fmt
+                    )
+
+                else:
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        border_fmt
+                    )
+
+            # Emp ID write as text
+            elif col_name == 'Emp ID':
+
+                sc_sheet.write(
+                    rr,
+                    ci,
+                    str(val) if pd.notna(val) else "",
+                    border_fmt
+                )
+
+            # dll klo value 0 -> cell jd kosong
+            else:
+
+                if pd.isna(val) or val == 0:
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        border_fmt
+                    )
+
+                else:
+
+                    sc_sheet.write(
+                        rr,
+                        ci,
+                        val,
+                        border_fmt
+                    )
+
+    # Benefit sheet
+    benefit_sheet = workbook.add_worksheet('Benefit')
+
+    writer.sheets['Benefit'] = benefit_sheet
+
+    benefit_sheet.hide_gridlines(2)
+
+    for ci, col_name in enumerate(df_benefit.columns):
+        benefit_sheet.write(0, ci, col_name, header_fmt)
+
+    koma_cols_benefit = [
+        'Billed',
+        'Accepted',
+        'Unpaid',
+        'Excess Total',
+        'Excess Coy',
+        'Excess Emp'
+    ]
+	
+    for rr, rowdata in enumerate(
+        df_benefit.to_dict("records"),
+        start=1
+    ):
+
+        for ci, (col_name, val) in enumerate(rowdata.items()):
+
+            # koma cols (0 -> cell kosong)
+            if col_name in koma_cols_benefit:
+
+                if pd.isna(val) or val == 0:
+
+                    benefit_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        num_fmt
+                    )
+
+                else:
+
+                    benefit_sheet.write_number(
+                        rr,
+                        ci,
+                        float(val),
+                        num_fmt
+                    )
+
+            elif col_name in (
+                'Treatment Start',
+                'Treatment Finish',
+                'Payment Date'
+            ):
+
+                if pd.notna(val) and val != '':
+
+                    try:
+
+                        benefit_sheet.write_datetime(
+                            rr,
+                            ci,
+                            pd.to_datetime(val),
+                            date_fmt
+                        )
+
+                    except:
+
+                        benefit_sheet.write(
+                            rr,
+                            ci,
+                            None,
+                            border_fmt
+                        )
+
+                else:
+
+                    benefit_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        border_fmt
+                    )
+
+            # Emp ID write as text
+            elif col_name == 'Emp ID':
+
+                benefit_sheet.write(
+                    rr,
+                    ci,
+                    str(val) if pd.notna(val) else "",
+                    border_fmt
+                )
+
+            # dll klo value 0 -> cell jd kosong
+            else:
+
+                if pd.isna(val) or val == 0:
+
+                    benefit_sheet.write(
+                        rr,
+                        ci,
+                        None,
+                        border_fmt
+                    )
+
+                else:
+
+                    benefit_sheet.write(
+                        rr,
+                        ci,
+                        val,
+                        border_fmt
+                    )
+
+    # Autofit SC & Benefit only
+    def autofit(sheet, df):
+
+        for idx, col in enumerate(df.columns):
+
+            series = df[col].astype(str)
+
+            try:
+                max_len = max(
+                    series.map(len).max(),
+                    len(col)
+                )
+
+            except Exception:
+                max_len = len(col)
+
+            sheet.set_column(
+                idx,
+                idx,
+                max_len + 5
+            )
+
+    try:
+
+        autofit(sc_sheet, df_sc)
+
+        autofit(
+            benefit_sheet,
+            df_benefit
+        )
+
+        autofit(
+            summary_sheet,
+            pd.DataFrame(merged[cr_columns_header])
+        )
+
+    except Exception:
+        pass
+
     output.seek(0)
+
     return output.getvalue(), filename
+
+
 # compile to excel main
-def run_d(uploaded_sc, uploaded_benefit, uploaded_cr, policy_filter_list):
+def run_d(
+    uploaded_sc,
+    uploaded_benefit,
+    uploaded_cr,
+    policy_filter_list
+):
+
     # load SC and Benefit CSVs
     df_sc_raw = pd.read_csv(uploaded_sc)
-    df_benefit_raw = pd.read_csv(uploaded_benefit)
- 
+
+    df_benefit_raw = pd.read_csv(
+        uploaded_benefit
+    )
+
     # load Claim Ratio (xlsx)
     try:
-        df_cr_raw = pd.read_excel(uploaded_cr)
+
+        df_cr_raw = pd.read_excel(
+            uploaded_cr
+        )
+
     except Exception as e:
-        st.error(f"Error reading Claim Ratio file: {e}")
+
+        st.error(
+            f"Error reading Claim Ratio file: {e}"
+        )
+
         df_cr_raw = pd.DataFrame()
- 
+
     # prepro SC and benefit using excel_c logic
     df_sc_clean = template_sc(df_sc_raw)
- 
+
     # filter SC by policy list if provided
     if policy_filter_list:
+
         # ensure comparable types
-        df_sc_clean["Policy No"] = df_sc_clean["Policy No"].astype(str).str.strip()
-        df_sc_clean = df_sc_clean[df_sc_clean["Policy No"].isin([str(p).strip() for p in policy_filter_list])]
- 
-    # filter benefit using df_sc_clean (reuse filter logic)
-    df_benefit_filtered = filter_benefit_data(df_benefit_raw, df_sc_clean)
-    df_benefit_clean = template_benefit(df_benefit_filtered)
- 
-    # Process claim ratio: filter by policy no (assume CR has column 'Policy No' or 'PolicyNo')
+        df_sc_clean["Policy No"] = (
+            df_sc_clean["Policy No"]
+            .astype(str)
+            .str.strip()
+        )
+
+        df_sc_clean = df_sc_clean[
+            df_sc_clean["Policy No"].isin(
+                [str(p).strip() for p in policy_filter_list]
+            )
+        ]
+
+    # filter benefit using df_sc_clean
+    df_benefit_filtered = filter_benefit_data(
+        df_benefit_raw,
+        df_sc_clean
+    )
+
+    df_benefit_clean = template_benefit(
+        df_benefit_filtered
+    )
+
+    # Process claim ratio
     if not df_cr_raw.empty:
-        cr_cols = [c for c in df_cr_raw.columns if c.strip().lower() in ("policy no", "policyno", "policy")]
+
+        cr_cols = [
+            c for c in df_cr_raw.columns
+            if c.strip().lower() in (
+                "policy no",
+                "policyno",
+                "policy"
+            )
+        ]
+
         if cr_cols:
+
             policy_col = cr_cols[0]
-            df_cr_raw[policy_col] = df_cr_raw[policy_col].astype(str).str.strip()
+
+            df_cr_raw[policy_col] = (
+                df_cr_raw[policy_col]
+                .astype(str)
+                .str.strip()
+            )
+
             if policy_filter_list:
-                df_cr_filtered = df_cr_raw[df_cr_raw[policy_col].isin([str(p).strip() for p in policy_filter_list])]
+
+                df_cr_filtered = df_cr_raw[
+                    df_cr_raw[policy_col].isin(
+                        [
+                            str(p).strip()
+                            for p in policy_filter_list
+                        ]
+                    )
+                ]
+
             else:
                 df_cr_filtered = df_cr_raw.copy()
+
         else:
-            # no policy column found, keep whole df but warn
-            st.warning("No 'Policy No' column detected in Claim Ratio file. Using full CR dataset.")
+
+            # no policy column found
+            st.warning(
+                "No 'Policy No' column detected in Claim Ratio file. Using full CR dataset."
+            )
+
             df_cr_filtered = df_cr_raw.copy()
+
     else:
         df_cr_filtered = pd.DataFrame()
- 
-    # normalize column names in claim ratio (strip)
-    df_cr_filtered.columns = df_cr_filtered.columns.str.strip()
- 
-    return df_sc_clean, df_benefit_clean, df_cr_filtered
+
+    # normalize column names in claim ratio
+    df_cr_filtered.columns = (
+        df_cr_filtered.columns.str.strip()
+    )
+
+    return (
+        df_sc_clean,
+        df_benefit_clean,
+        df_cr_filtered
+    )
