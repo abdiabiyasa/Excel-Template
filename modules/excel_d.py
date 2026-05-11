@@ -327,9 +327,13 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged['CR'] = merged.apply(lambda r: (r['Claim'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
-    merged['Policy Claim Total'] = merged.groupby(['Policy No', 'Company'])['Claim'].transform('sum')
-    merged['Policy CR'] = (merged['Policy Claim Total'] / merged['Net Premi'] * 100)
-    merged['Policy CR'] = merged['Policy CR'].fillna(0)
+    policy_summary = merged.groupby(['Policy No', 'Company'],as_index=False).agg({'Claim': 'sum','Net Premi': 'first','Est Claim Total': 'first'})
+    policy_summary['Policy Claim Total'] = policy_summary['Claim']
+ 
+    policy_summary['Policy CR'] = (policy_summary['Policy Claim Total']/ policy_summary['Net Premi']* 100)
+    policy_summary['Policy Est CR'] = (policy_summary['Est Claim Total']/ policy_summary['Net Premi']* 100)
+ 
+    merged = merged.merge(policy_summary[['Policy No','Company','Policy Claim Total','Policy CR','Policy Est CR']],on=['Policy No', 'Company'],how='left')
     
     merged = merged.rename(columns={'Excess Coy': 'Excess Company','Excess Emp': 'Excess Employee','CR': 'Claim Ratio','Est CR': 'Est Claim Ratio Full Year'})
  
