@@ -431,16 +431,18 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
             val = rowdata.get(col_name, 0)
         
-            if col_name == 'Claim':
+            if col_name == 'Claim' and idx == 0:
              val = rowdata.get('Policy Claim Total', 0)
         
-            if col_name == 'Claim Ratio':
+            if col_name == 'Claim Ratio' and idx == 0:
              val = rowdata.get('Policy CR', 0)
+             
+            if col_name == 'Est Claim Ratio Full Year' and idx == 0:
+             val = rowdata.get('Est Claim Ratio Full Year', 0)
         
             merge_cols = [
              'Policy No',
              'Company',
-             'Member',
              'Net Premi',
              'Claim',
              'Claim Ratio',
@@ -465,7 +467,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                highlight_yellow
               )
         
-             elif col_name in ('Net Premi', 'Claim', 'Member'):
+             elif col_name in ('Net Premi', 'Member'):
         
               summary_sheet.merge_range(
                first_row,
@@ -496,6 +498,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               )
         
              elif col_name in (
+              'Member',
               'Net Premi',
               'Est Claim Total',
               'Billed',
@@ -532,7 +535,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
          # GRAND TOTAL ROW
          summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
         
-         member_total = grand_base['Member'].sum() if 'Member' in grand_base.columns else 0
+         member_total = merged['Member'].sum() if 'Member' in merged.columns else 0
         
          grand_values = {
           3: member_total,
