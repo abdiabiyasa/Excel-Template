@@ -326,12 +326,6 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     merged['Est CR'] = merged.apply(lambda r: (r['Est Claim Total'] / r['Net Premi'] * 100) if r['Net Premi'] else 0, axis=1)
 
     merged = merged.merge(policy_totals,on='Policy No',how='left',suffixes=('', '_policy'))
-    policy_summary['Policy Claim Total'] = policy_summary['Claim']
- 
-    policy_summary['Policy CR'] = (policy_summary['Policy Claim Total']/ policy_summary['Net Premi']* 100)
-    policy_summary['Policy Est CR'] = (policy_summary['Est Claim Total']/ policy_summary['Net Premi']* 100)
- 
-    merged = merged.merge(policy_summary[['Policy No','Company','Policy Claim Total','Policy CR','Policy Est CR']],on=['Policy No', 'Company'],how='left')
 
     merged['Product'] = merged['Product'].fillna('')
     
