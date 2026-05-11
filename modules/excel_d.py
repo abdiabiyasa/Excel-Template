@@ -478,19 +478,12 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              elif col_name in ('Net Premi', 'Member'):
         
-              try:
-               numeric_val = float(val)
-               if pd.isna(numeric_val) or np.isinf(numeric_val):
-                numeric_val = 0
-              except:
-               numeric_val = 0
-
               summary_sheet.merge_range(
                first_row,
                ci,
                last_row,
                ci,
-               numeric_val,
+               float(val),
                highlight_yellow
               )
         
