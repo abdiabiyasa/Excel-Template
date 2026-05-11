@@ -148,9 +148,9 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
     # Helper: normalize dataframe column names (strip)
     def _norm_cols(df):
-        df = pd.DataFrame(df).copy()
-        df.columns = [c.strip() for c in df.columns]
-        return df
+     df = pd.DataFrame(df).copy()
+     df.columns = [c.strip() for c in df.columns]
+     return df
  
     df_sc = _norm_cols(df_sc)
     df_benefit = _norm_cols(df_benefit)
@@ -204,33 +204,33 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
     # Normalize SC columns and map expected names
     def _map_sc_columns(sc_df):
-        mapping_candidates = {
-            'Client Name': ['Client Name','ClientName','Client','Company'],
-            'Policy No': ['Policy No','PolicyNo','Policy'],
-            'Sum of Billed': ['Sum of Billed','Billed','Total Billed'],
-            'Sum of Accepted': ['Sum of Accepted','Accepted','Claim'],
-            'Sum of Unpaid': ['Sum of Unpaid','Unpaid'],
-            'Sum of Excess Total': ['Sum of Excess Total','Excess Total','ExcessTotal'],
-            'Sum of Excess Coy': ['Sum of Excess Coy','Excess Coy','ExcessCoy'],
-            'Sum of Excess Emp': ['Sum of Excess Emp','Excess Emp','ExcessEmp']
-        }
-        col_map = {}
-        for canon, candidates in mapping_candidates.items():
-            found = next((c for c in sc_df.columns if c in candidates or c.strip().lower() in [x.lower() for x in candidates]), None)
-            col_map[canon] = found if found else None
-        return col_map
+     mapping_candidates = {
+      'Client Name': ['Client Name','ClientName','Client','Company'],
+      'Policy No': ['Policy No','PolicyNo','Policy'],
+      'Sum of Billed': ['Sum of Billed','Billed','Total Billed'],
+      'Sum of Accepted': ['Sum of Accepted','Accepted','Claim'],
+      'Sum of Unpaid': ['Sum of Unpaid','Unpaid'],
+      'Sum of Excess Total': ['Sum of Excess Total','Excess Total','ExcessTotal'],
+      'Sum of Excess Coy': ['Sum of Excess Coy','Excess Coy','ExcessCoy'],
+      'Sum of Excess Emp': ['Sum of Excess Emp','Excess Emp','ExcessEmp']
+     }
+     col_map = {}
+     for canon, candidates in mapping_candidates.items():
+      found = next((c for c in sc_df.columns if c in candidates or c.strip().lower() in [x.lower() for x in candidates]), None)
+      col_map[canon] = found if found else None
+      return col_map
  
     sc_map = _map_sc_columns(df_sc)
  
     # Ensure canonical columns exist in df_sc (create if missing)
     for canon, orig in sc_map.items():
-        if orig is None:
-            if canon in ('Client Name','Policy No'):
-                df_sc[canon] = ''
-            else:
-                df_sc[canon] = 0
-        else:
-            df_sc = df_sc.rename(columns={orig: canon})
+     if orig is None:
+      if canon in ('Client Name','Policy No'):
+       df_sc[canon] = ''
+      else:
+       df_sc[canon] = 0
+      else:
+       df_sc = df_sc.rename(columns={orig: canon})
  
     # Defensive conversions for df_sc
     df_sc['Client Name'] = df_sc['Client Name'].astype(str).fillna('')
@@ -246,12 +246,12 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     # -------------------------
     member_count = df_sc.groupby(['Client Name','Policy No','Product Type'])['Member No'].nunique().reset_index().rename(columns={'Member No': 'Member', 'Product Type': 'Product'})
     sc_grouped = df_sc.groupby(['Client Name','Policy No', 'Product Type'], dropna=False).agg({
-        'Sum of Billed':'sum',
-        'Sum of Accepted':'sum',
-        'Sum of Unpaid':'sum',
-        'Sum of Excess Total':'sum',
-        'Sum of Excess Coy':'sum',
-        'Sum of Excess Emp':'sum'
+     'Sum of Billed':'sum',
+     'Sum of Accepted':'sum',
+     'Sum of Unpaid':'sum',
+     'Sum of Excess Total':'sum',
+     'Sum of Excess Coy':'sum',
+     'Sum of Excess Emp':'sum'
     }).reset_index().rename(columns={'Sum of Accepted':'Claim', 'Product Type':'Product'})
  
     sc_grouped = sc_grouped.merge(member_count,on=['Client Name','Policy No','Product'],how='left')
@@ -265,11 +265,11 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
     sc_grouped['Client Name'] = sc_grouped['Client Name'].astype(str).str.strip().str.upper()
     sc_grouped['Policy No'] = sc_grouped['Policy No'].astype(str).str.strip()
     merged = cr.merge(
-        sc_grouped,
-        left_on=['Company','Policy No'],
-        right_on=['Client Name','Policy No'],
-        how='left',
-        suffixes=('','_sc')
+     sc_grouped,
+     left_on=['Company','Policy No'],
+     right_on=['Client Name','Policy No'],
+     how='left',
+     suffixes=('','_sc')
     )
 
     policy_totals = (sc_grouped.groupby(['Policy No'], as_index=False).agg({'Claim': 'sum','Sum of Billed': 'sum','Sum of Unpaid': 'sum','Sum of Excess Total': 'sum','Sum of Excess Coy': 'sum','Sum of Excess Emp': 'sum'}))
@@ -283,7 +283,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
      member_lookup = (cr[['Policy No', member_col]].drop_duplicates(subset=['Policy No']).rename(columns={member_col: 'Member'}))
      merged = merged.merge(member_lookup,on='Policy No',how='left')
     else:
-        merged['Member'] = 0
+     merged['Member'] = 0
  
 
     if 'Product' not in merged.columns:
@@ -312,7 +312,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
-        merged[col] = pd.to_numeric(merged.get(col, 0), errors='coerce').fillna(0)
+     merged[col] = pd.to_numeric(merged.get(col, 0), errors='coerce').fillna(0)
  
     merged['Billed'] = merged['Sum of Billed']
     merged['Unpaid'] = merged['Sum of Unpaid']
@@ -334,8 +334,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
  
     cr_columns_header = ["Policy No","Company","Product","Member","Net Premi","Billed","Unpaid","Excess Total","Excess Company","Excess Employee","Claim","Claim Ratio","Est Claim Ratio Full Year"]
     for c in cr_columns_header:
-        if c not in merged.columns:
-            merged[c] = 0
+     if c not in merged.columns:
+      merged[c] = 0
  
     # totals
     grand_base = merged.drop_duplicates(subset=['Policy No', 'Company'])
@@ -387,25 +387,25 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
 
  
         metrics = [
-            ("Total Claims", len(df_sc), num_fmt),
-            ("Employee Claims", len(df_sc[df_sc.get('Membership','') == '1. EMP']), num_fmt),
-            ("Spouse Claims", len(df_sc[df_sc.get('Membership','') == '2. SPO']), num_fmt),
-            ("Children Claims", len(df_sc[df_sc.get('Membership','') == '3. CHI']), num_fmt),
-            ("Total Billed", df_sc['Sum of Billed'].sum() if 'Sum of Billed' in df_sc.columns else 0, num_fmt),
-            ("Total Accepted", df_sc['Sum of Accepted'].sum() if 'Sum of Accepted' in df_sc.columns else 0, num_fmt),
-            ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
-            ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
-            ("Claim Ratio (%)", grand_cr, percent_format),
-            ("Est Claim Ratio (%)", grand_est_cr, percent_format)
+         ("Total Claims", len(df_sc), num_fmt),
+         ("Employee Claims", len(df_sc[df_sc.get('Membership','') == '1. EMP']), num_fmt),
+         ("Spouse Claims", len(df_sc[df_sc.get('Membership','') == '2. SPO']), num_fmt),
+         ("Children Claims", len(df_sc[df_sc.get('Membership','') == '3. CHI']), num_fmt),
+         ("Total Billed", df_sc['Sum of Billed'].sum() if 'Sum of Billed' in df_sc.columns else 0, num_fmt),
+         ("Total Accepted", df_sc['Sum of Accepted'].sum() if 'Sum of Accepted' in df_sc.columns else 0, num_fmt),
+         ("Total Excess", df_sc['Sum of Excess Total'].sum() if 'Sum of Excess Total' in df_sc.columns else 0, num_fmt),
+         ("Total Unpaid", df_sc['Sum of Unpaid'].sum() if 'Sum of Unpaid' in df_sc.columns else 0, num_fmt),
+         ("Claim Ratio (%)", grand_cr, percent_format),
+         ("Est Claim Ratio (%)", grand_est_cr, percent_format)
         ]
  
         for i,(name,val,fmt) in enumerate(metrics,start=4):
-            summary_sheet.write(i,0,name,borderbold_fmt)
-            summary_sheet.write(i,1,val,fmt)
+         summary_sheet.write(i,0,name,borderbold_fmt)
+         summary_sheet.write(i,1,val,fmt)
  
         cr_start = 4 + len(metrics) + 3
         for ci,col_name in enumerate(cr_columns_header):
-            summary_sheet.write(cr_start,ci,col_name,header_border)
+         summary_sheet.write(cr_start,ci,col_name,header_border)
         r = cr_start + 1
  
         if not merged.empty:
@@ -622,44 +622,44 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         sc_sheet.write(3,0,period_text, plain_fmt)
  
         for ci,col_name in enumerate(df_sc.columns):
-            sc_sheet.write(6,ci,col_name,header_fmt)
+         sc_sheet.write(6,ci,col_name,header_fmt)
  
         koma_cols = ['Sum of Billed','Sum of Accepted','Sum of Excess Coy','Sum of Excess Emp','Sum of Excess Total','Sum of Unpaid']
  
         for rr, rowdata in enumerate(df_sc.to_dict("records"), start=7):
-            for ci, (col_name, val) in enumerate(rowdata.items()):
-                # koma cols ( 0 -> cell kosong)
-                if col_name in koma_cols:
-                    if pd.isna(val) or val == 0:
-                        sc_sheet.write(rr, ci, None, num_fmt)  # blank cell
-                    else:
-                        sc_sheet.write_number(rr, ci, float(val), num_fmt)
-                # Date columns
-                elif col_name in ('Treatment Start', 'Treatment Finish', 'Settled Date'):
-                    if pd.notna(val) and val != '':
-                        try:
-                            sc_sheet.write_datetime(rr, ci, pd.to_datetime(val), date_fmt)
-                        except:
-                            sc_sheet.write(rr, ci, None, border_fmt)
-                    else:
-                        sc_sheet.write(rr, ci, None, border_fmt)
-                # PrePost write as boolean
-                elif col_name == 'PrePost':
-                    if val in [1, "1", True]:
-                        sc_sheet.write(rr, ci, "True", border_fmt)
-                    elif val in [0, "0", False, None]:
-                        sc_sheet.write(rr, ci, "False", border_fmt)
-                    else:
-                        sc_sheet.write(rr, ci, None, border_fmt)
+         for ci, (col_name, val) in enumerate(rowdata.items()):
+          # koma cols ( 0 -> cell kosong)
+          if col_name in koma_cols:
+           if pd.isna(val) or val == 0:
+            sc_sheet.write(rr, ci, None, num_fmt)  # blank cell
+           else:
+            sc_sheet.write_number(rr, ci, float(val), num_fmt)
+            # Date columns
+           elif col_name in ('Treatment Start', 'Treatment Finish', 'Settled Date'):
+            if pd.notna(val) and val != '':
+             try:
+              sc_sheet.write_datetime(rr, ci, pd.to_datetime(val), date_fmt)
+              except:
+               sc_sheet.write(rr, ci, None, border_fmt)
+             else:
+              sc_sheet.write(rr, ci, None, border_fmt)
+              # PrePost write as boolean
+            elif col_name == 'PrePost':
+             if val in [1, "1", True]:
+              sc_sheet.write(rr, ci, "True", border_fmt)
+             elif val in [0, "0", False, None]:
+              sc_sheet.write(rr, ci, "False", border_fmt)
+             else:
+              sc_sheet.write(rr, ci, None, border_fmt)
                 # Emp ID write as text
-                elif col_name == 'Emp ID':
-                    sc_sheet.write(rr, ci, str(val) if pd.notna(val) else "", border_fmt)
+             elif col_name == 'Emp ID':
+              sc_sheet.write(rr, ci, str(val) if pd.notna(val) else "", border_fmt)
                 # dll klo value 0 -> cell jd kosong
+               else:
+                if pd.isna(val) or val == 0:
+                 sc_sheet.write(rr, ci, None, border_fmt)
                 else:
-                    if pd.isna(val) or val == 0:
-                        sc_sheet.write(rr, ci, None, border_fmt)
-                    else:
-                        sc_sheet.write(rr, ci, val, border_fmt)
+                 sc_sheet.write(rr, ci, val, border_fmt)
  
  
         # Benefit sheet
@@ -668,19 +668,18 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         benefit_sheet.hide_gridlines(2)
  
         for ci,col_name in enumerate(df_benefit.columns):
-            benefit_sheet.write(0,ci,col_name,header_fmt)
+         benefit_sheet.write(0,ci,col_name,header_fmt)
  
         koma_cols_benefit = ['Billed','Accepted','Unpaid','Excess Total','Excess Coy','Excess Emp']
  
         for rr, rowdata in enumerate(df_benefit.to_dict("records"), start=1):
-            for ci, (col_name, val) in enumerate(rowdata.items()):
-                # koma kols (0 -> cell kosong)
-                if col_name in koma_cols_benefit:
-                    if pd.isna(val) or val == 0:
-                        benefit_sheet.write(rr, ci, None, num_fmt)  # blank cell
-                    else:
-                        benefit_sheet.write_number(rr, ci, float(val), num_fmt)
-                # Date columns
+         for ci, (col_name, val) in enumerate(rowdata.items()):
+          # koma kols (0 -> cell kosong)
+          if col_name in koma_cols_benefit:
+           if pd.isna(val) or val == 0:
+            benefit_sheet.write(rr, ci, None, num_fmt)  # blank cell
+           else:
+            benefit_sheet.write_number(rr, ci, float(val), num_fmt)
                 elif col_name in ('Treatment Start', 'Treatment Finish', 'Payment Date'):
                     if pd.notna(val) and val != '':
                         try:
