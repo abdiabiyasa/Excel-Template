@@ -308,7 +308,6 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
       merged['Member'] = 0
 
     merged['Member'] = merged['Member'].fillna(0)
-    merged['Member'] = pd.to_numeric(merged['Member'], errors='coerce').fillna(0)
  
     # Ensure merged numeric
     for col in ['Sum of Billed','Sum of Unpaid','Sum of Excess Total','Sum of Excess Coy','Sum of Excess Emp','Claim']:
@@ -460,19 +459,12 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
         
-              try:
-               numeric_val = float(val)
-               if pd.isna(numeric_val) or np.isinf(numeric_val):
-                numeric_val = 0
-              except:
-               numeric_val = 0
-
               summary_sheet.merge_range(
                first_row,
                ci,
                last_row,
                ci,
-               numeric_val,
+               float(val),
                highlight_yellow
               )
         
@@ -483,8 +475,8 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
                ci,
                last_row,
                ci,
-               float(val),
-               highlight_yellow
+               float(val) if pd.notna(val) else 0,
+               num_fmt
               )
         
              else:
@@ -499,17 +491,10 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
         
-              try:
-               numeric_val = float(val)
-               if pd.isna(numeric_val) or np.isinf(numeric_val):
-                numeric_val = 0
-              except:
-               numeric_val = 0
-
               summary_sheet.write_number(
                excel_row,
                ci,
-               numeric_val,
+               float(val),
                highlight_yellow
               )
         
@@ -551,7 +536,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
          # GRAND TOTAL ROW
          summary_sheet.merge_range(r, 0, r, 2, 'Grand Total', borderbold_fmt)
         
-         member_total = (merged[['Policy No', 'Member']].drop_duplicates(subset=['Policy No'])['Member'].astype(float).sum()) if 'Member' in merged.columns else 0
+         member_total = grand_base['Member'].sum() if 'Member' in merged.columns else 0
         
          grand_values = {
           3: member_total,
