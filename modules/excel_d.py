@@ -460,12 +460,19 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
         
+              try:
+               numeric_val = float(val)
+               if pd.isna(numeric_val) or np.isinf(numeric_val):
+                numeric_val = 0
+              except:
+               numeric_val = 0
+               
               summary_sheet.merge_range(
                first_row,
                ci,
                last_row,
                ci,
-               float(val),
+               numeric_val,
                highlight_yellow
               )
         
@@ -492,10 +499,17 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
         
              if col_name in ('Claim Ratio', 'Est Claim Ratio Full Year'):
         
-              summary_sheet.write_number(
+              try:
+               numeric_val = float(val)
+               if pd.isna(numeric_val) or np.isinf(numeric_val):
+                numeric_val = 0
+              except:
+               numeric_val = 0
+               
+              summary_sheet.merge_range(
                excel_row,
                ci,
-               float(val),
+               numeric_val,
                highlight_yellow
               )
         
@@ -516,7 +530,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
               except:
                numeric_val = 0
         
-              summary_sheet.write_number(
+              summary_sheet.merge_range(
                excel_row,
                ci,
                numeric_val,
@@ -551,7 +565,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
          }
         
          for col_idx, value in grand_values.items():
-          summary_sheet.write_number(
+          summary_sheet.merge_range(
            r,
            col_idx,
            float(value),
@@ -559,7 +573,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
           )
         
          # Claim Ratio
-         summary_sheet.write_number(
+         summary_sheet.merge_range(
           r,
           11,
           float(grand_cr),
@@ -567,7 +581,7 @@ def save_to_excel_d(df_sc, df_benefit, claim_ratio_df, filename: str):
          )
         
          # Est Claim Ratio
-         summary_sheet.write_number(
+         summary_sheet.merge_range(
           r,
           12,
           float(grand_est_cr),
